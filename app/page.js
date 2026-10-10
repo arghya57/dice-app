@@ -6,30 +6,38 @@ const MOODS = { any: '🎲 যেকোনো', romantic: '💕 রোমান�
 const LEVELS = { 1: '🌸 লেভেল ১ · হালকা', 2: '💋 লেভেল ২ · রোমান্টিক', 3: '🔥 লেভেল ৩ · ইন্টিমেট' };
 const LEVEL_ICON = { 1: '🌸', 2: '💋', 3: '🔥' };
 
-// প্রতিটি ট্যাবের আলাদা রং, আইকন ও লেখা
 const T = {
-  dice:    { icon: '🎲', label: 'ডাইস',   color: '#ff3d7f', title: 'ডাইস গেম',  desc: 'দুটি ডাইস ফেলুন: কী করবেন আর কোথায়/কীভাবে', hero: '🎲🎲', btn: '🎲 ডাইস ফেলুন' },
-  card:    { icon: '🃏', label: 'কার্ড',   color: '#ffb347', title: 'কার্ড গেম',  desc: 'একটা কার্ড তুলুন, দেখুন ভাগ্যে কী আছে', hero: '🃏', btn: '🃏 কার্ড তুলুন' },
-  truth:   { icon: '💬', label: 'ট্রুথ',   color: '#b266ff', title: 'ট্রুথ',     desc: 'সত্যি বলুন... কোনো লুকোছাপা নয় 😏', hero: '💬😏', btn: '💬 ট্রুথ নিন' },
-  dare:    { icon: '🔥', label: 'ডেয়ার',   color: '#ff4d2e', title: 'ডেয়ার',     desc: 'সাহস আছে? পিছিয়ে যাবেন না 😈', hero: '🔥😈', btn: '🔥 ডেয়ার নিন' },
-  wish:    { icon: '💭', label: 'উইশ',    color: '#ff7eb6', title: 'গোপন ইচ্ছা', desc: '', hero: '', btn: '' },
-  history: { icon: '⭐', label: 'হিস্ট্রি', color: '#ffd369', title: 'পছন্দ ও ইতিহাস', desc: '', hero: '', btn: '' },
+  home:    { icon: '🏠', label: 'হোম',    color: '#ff3d7f', title: 'হোম', desc: '', hero: '', btn: '', stk: [] },
+  dice:    { icon: '🎲', label: 'ডাইস',   color: '#ff3d7f', title: 'ডাইস গেম',  desc: 'দুটি ডাইস ফেলুন: কী করবেন আর কোথায়/কীভাবে', hero: '🎲🎲', btn: '🎲 ডাইস ফেলুন', stk: ['💋', '😘', '🔥', '💞'] },
+  card:    { icon: '🃏', label: 'কার্ড',   color: '#ffb347', title: 'কার্ড গেম',  desc: 'একটা কার্ড তুলুন, দেখুন ভাগ্যে কী আছে', hero: '🃏', btn: '🃏 কার্ড তুলুন', stk: ['🌹', '🍷', '✨', '😏'] },
+  truth:   { icon: '💬', label: 'ট্রুথ',   color: '#b266ff', title: 'ট্রুথ',     desc: 'সত্যি বলুন... কোনো লুকোছাপা নয় 😏', hero: '💬😏', btn: '💬 ট্রুথ নিন', stk: ['🤫', '🙈', '💜', '👀'] },
+  dare:    { icon: '🔥', label: 'ডেয়ার',   color: '#ff4d2e', title: 'ডেয়ার',     desc: 'সাহস আছে? পিছিয়ে যাবেন না 😈', hero: '🔥😈', btn: '🔥 ডেয়ার নিন', stk: ['😈', '🥵', '💥', '🍑'] },
+  wish:    { icon: '💭', label: 'উইশ',    color: '#ff7eb6', title: 'গোপন ইচ্ছা', desc: '', hero: '', btn: '', stk: ['🤫', '💌', '🌙'] },
+  history: { icon: '⭐', label: 'হিস্ট্রি', color: '#ffd369', title: 'পছন্দ ও ইতিহাস', desc: '', hero: '', btn: '', stk: ['⭐', '💝', '🕰️'] },
 };
 const GAME_TABS = ['dice', 'card', 'truth', 'dare'];
+const HUB_TEXT = {
+  dice: 'কী করবেন + কীভাবে, দুই ডাইসে',
+  card: 'ঘুরন্ত ডেক থেকে একটা কার্ড',
+  truth: 'সত্যি বলার খেলা',
+  dare: 'সাহসের চ্যালেঞ্জ',
+};
 const FLOATERS = [
   ['💋', '6%', '12%', '0s'], ['🔥', '82%', '8%', '2s'], ['😈', '12%', '48%', '4s'], ['🌹', '88%', '42%', '1s'],
   ['🍷', '8%', '78%', '3s'], ['🥵', '78%', '74%', '5s'], ['🍑', '46%', '90%', '2.5s'], ['💞', '50%', '4%', '6s'],
+  ['😘', '30%', '30%', '7s'], ['🫦', '65%', '60%', '3.5s'], ['💦', '20%', '65%', '8s'], ['🖤', '92%', '85%', '1.5s'],
 ];
+const HERO_STICKERS = [['💋', -12], ['😍', 8], ['🔥', -6], ['🫦', 12], ['😈', -10], ['💞', 6]];
 
 const tabOfAct = (a) => (a?.kind === 'card' ? 'card' : a?.kind === 'truth' ? 'truth' : a?.kind === 'dare' ? 'dare' : 'dice');
 
 const CSS = `
 .app{position:relative;min-height:100vh;padding:18px 16px 120px;max-width:460px;margin:0 auto;text-align:center;overflow-x:hidden;font-family:'Hind Siliguri',sans-serif}
 .bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 18% 8%,#4d0b30 0,transparent 46%),radial-gradient(circle at 88% 30%,#3a0a48 0,transparent 42%),radial-gradient(circle at 50% 105%,#5e0f20 0,transparent 52%),#0b0210}
-.float{position:fixed;font-size:28px;opacity:.13;animation:drift 14s ease-in-out infinite;pointer-events:none;z-index:0}
+.float{position:fixed;font-size:28px;opacity:.14;animation:drift 14s ease-in-out infinite;pointer-events:none;z-index:0}
 .z{position:relative;z-index:1}
 .logo{font-size:36px;font-weight:700;margin:6px 0 0;background:linear-gradient(90deg,#ffa6c9,#ff3d7f,#ffb347);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(255,61,127,.35)}
-.sub{font-size:12px;letter-spacing:.16em;color:#e0a9c2;margin:0 0 14px}
+.sub{font-size:12px;letter-spacing:.16em;color:#e0a9c2;margin:0 0 10px}
 .glass{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:22px;padding:16px;margin:12px 0;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .inp{width:100%;padding:13px 15px;margin:6px 0;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.38);color:#fff;font-size:16px;box-sizing:border-box;outline:none;font-family:inherit}
 .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,61,127,.28)}
@@ -55,9 +63,22 @@ const CSS = `
 .h3{margin:18px 0 8px;font-size:17px;color:#ffd0e3}
 .item{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);padding:12px 14px;border-radius:16px;margin:8px 0;font-size:16px}
 .muted{font-size:13px;color:#d9b4c6}
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:2px;padding:8px 4px calc(8px + env(safe-area-inset-bottom));background:rgba(12,2,16,.85);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.1)}
-.nav button{flex:1;max-width:72px;background:none;border:none;color:#b995a8;font-family:inherit;font-size:11px;padding:4px 0;cursor:pointer}
-.nav button span{display:block;font-size:23px;filter:grayscale(.7);transition:all .2s}
+.sticker{display:inline-block;font-size:34px;line-height:1;padding:9px;margin:4px;border-radius:50%;background:rgba(255,255,255,.09);border:2px dashed rgba(255,255,255,.35);box-shadow:0 6px 18px rgba(0,0,0,.4),0 0 16px -4px var(--accent);transform:rotate(var(--r,0deg));animation:wob 3.4s ease-in-out infinite}
+.stkrow{margin:2px 0 8px}
+.welcome{font-size:15px;color:#ffd0e3;margin:2px 0 10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.gcard{position:relative;overflow:hidden;text-align:center;padding:18px 10px 14px;border-radius:24px;border:1.5px solid var(--c);background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(255,255,255,.02));box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 26px -8px var(--c);color:#fff;font-family:inherit;cursor:pointer;animation:pop .45s ease-out}
+.gcard:active{transform:scale(.96)}
+.gcard .e{font-size:50px;filter:drop-shadow(0 0 14px var(--c))}
+.gcard .t{font-size:19px;font-weight:700;margin-top:4px}
+.gcard .d{font-size:12px;color:#e6c3d3;margin-top:3px;line-height:1.4}
+.gcard .s{position:absolute;font-size:18px;opacity:.55}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2px 0 10px}
+.mini{padding:12px 8px;border-radius:18px;border:1px solid var(--c);background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:15px;cursor:pointer}
+.badge{display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.18);font-size:12px;margin:3px}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:0;padding:8px 2px calc(8px + env(safe-area-inset-bottom));background:rgba(12,2,16,.88);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.1)}
+.nav button{flex:1;max-width:62px;background:none;border:none;color:#b995a8;font-family:inherit;font-size:10px;padding:4px 0;cursor:pointer}
+.nav button span{display:block;font-size:22px;filter:grayscale(.7);transition:all .2s}
 .nav button.on{color:#fff}
 .nav button.on span{filter:none;transform:translateY(-3px) scale(1.18)}
 .nav button.on i{display:block;width:18px;height:3px;border-radius:3px;margin:3px auto 0;background:var(--nc)}
@@ -66,6 +87,7 @@ const CSS = `
 @keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
 @keyframes drift{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-28px) rotate(10deg)}}
 @keyframes pop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes wob{0%,100%{transform:rotate(var(--r,0deg)) scale(1)}50%{transform:rotate(calc(var(--r,0deg) * -1)) scale(1.08)}}
 `;
 
 export default function Home() {
@@ -81,7 +103,7 @@ export default function Home() {
   const [rolling, setRolling] = useState(false);
   const [rollTab, setRollTab] = useState('dice');
   const [msg, setMsg] = useState('');
-  const [tab, setTab] = useState('dice');
+  const [tab, setTab] = useState('home');
   const [mood, setMood] = useState('any');
   const [myVote, setMyVote] = useState(null);
   const [result, setResult] = useState(null);
@@ -126,7 +148,6 @@ export default function Home() {
     setFavs(data || []);
   };
 
-  // নতুন রোল দেখানো: রিয়েলটাইম আর পোলিং দুই জায়গা থেকেই ডাকা হয়, একই রোল দুইবার দেখাবে না
   const showRoll = (r) => {
     if (seenRoll.current !== null && r.id <= seenRoll.current) return;
     seenRoll.current = r.id;
@@ -144,7 +165,6 @@ export default function Home() {
     }, 1200);
   };
 
-  // রুমে ঢোকার সময় আগের রোলগুলো "দেখা হয়ে গেছে" ধরা হয়
   useEffect(() => {
     seenRoll.current = null;
     if (!room) return;
@@ -170,7 +190,6 @@ export default function Home() {
     const t = setInterval(async () => {
       const { data } = await supabase.from('rooms').select('*').eq('id', room.id).single();
       if (data) setRoom(data);
-      // রিয়েলটাইম কাজ না করলেও পার্টনারের রোল ধরার জন্য
       const { data: lr } = await supabase.from('rolls').select('*')
         .eq('room_id', room.id).order('id', { ascending: false }).limit(1);
       if (lr?.[0] && seenRoll.current !== null) showRoll(lr[0]);
@@ -219,8 +238,8 @@ export default function Home() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setMsg(error.message);
   };
-  const signOut = () => { supabase.auth.signOut(); setRoom(null); setCur(null); setAdult(null); };
-  const leaveRoom = () => { setRoom(null); setCur(null); };
+  const signOut = () => { supabase.auth.signOut(); setRoom(null); setCur(null); setAdult(null); setTab('home'); };
+  const leaveRoom = () => { setRoom(null); setCur(null); setTab('home'); };
   const confirmAdult = async () => {
     if (!tick) return setMsg('বয়স ১৮+ কনফার্ম করতে টিক দিন');
     await supabase.rpc('confirm_adult');
@@ -311,7 +330,9 @@ export default function Home() {
 
         {!user && (
           <div className="glass" style={{ animation: 'pop .4s ease-out' }}>
-            <div className="hero" style={{ fontSize: 64 }}>😈🔥</div>
+            <div className="stkrow">
+              {HERO_STICKERS.map(([e, r], i) => <span key={i} className="sticker" style={{ '--r': r + 'deg' }}>{e}</span>)}
+            </div>
             <p className="muted">লগইন করে শুরু করুন</p>
             <input className="inp" placeholder="ইমেইল" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input className="inp" type="password" placeholder="পাসওয়ার্ড (৬+ অক্ষর)" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -333,7 +354,9 @@ export default function Home() {
 
         {user && adult && !room && (
           <div className="glass" style={{ animation: 'pop .4s ease-out' }}>
-            <div className="hero" style={{ fontSize: 64 }}>🍷💞</div>
+            <div className="stkrow">
+              {[['🍷', -10], ['💞', 8], ['🌹', -6]].map(([e, r], i) => <span key={i} className="sticker" style={{ '--r': r + 'deg' }}>{e}</span>)}
+            </div>
             <button className="btn big" onClick={createRoom}>🌹 নতুন রুম বানান</button>
             <p className="muted">অথবা পার্টনারের রুম কোড দিয়ে জয়েন করুন</p>
             <input className="inp" placeholder="রুম কোড" value={code} onChange={(e) => setCode(e.target.value)} />
@@ -347,13 +370,63 @@ export default function Home() {
               <span className="muted">রুম কোড</span><span className="code">{room.code}</span>
               <div>
                 {!room.partner2_id && <span className="muted">⏳ পার্টনারের জন্য অপেক্ষা...</span>}
+                {tab !== 'home' && <button className="btn ghost tiny" onClick={() => setTab('home')}>🏠 হোম</button>}
                 <button className="btn ghost tiny" onClick={leaveRoom}>← রুম বদলান</button>
               </div>
             </div>
 
+            {tab === 'home' && (
+              <>
+                <div className="stkrow">
+                  {HERO_STICKERS.map(([e, r], i) => (
+                    <span key={i} className="sticker" style={{ '--r': r + 'deg', animationDelay: i * 0.3 + 's' }}>{e}</span>
+                  ))}
+                </div>
+                <p className="welcome">
+                  {room.partner2_id ? '💞 দুজনেই এসেছেন, শুরু করুন!' : '⏳ পার্টনার আসার অপেক্ষায়...'}
+                </p>
+                <div>
+                  <span className="badge">{LEVELS[eff]}</span>
+                  <span className="badge">আজকের মুড: {MOODS[mood]}</span>
+                </div>
+                <div style={{ margin: '8px 0' }}>
+                  {Object.entries(MOODS).map(([k, l]) => (
+                    <button key={k} className={'pill' + (mood === k ? ' on' : '')} onClick={() => setMood(k)}>{l}</button>
+                  ))}
+                </div>
+
+                <div className="h3">🎮 গেম বেছে নিন</div>
+                <div className="grid">
+                  {GAME_TABS.map((k, i) => (
+                    <button key={k} className="gcard" style={{ '--c': T[k].color, animationDelay: i * 0.08 + 's' }} onClick={() => setTab(k)}>
+                      <span className="s" style={{ left: 8, top: 6 }}>{T[k].stk[0]}</span>
+                      <span className="s" style={{ right: 8, top: 8 }}>{T[k].stk[1]}</span>
+                      <div className="e">{T[k].icon}</div>
+                      <div className="t">{T[k].label}</div>
+                      <div className="d">{HUB_TEXT[k]}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="row2">
+                  {['wish', 'history'].map((k) => (
+                    <button key={k} className="mini" style={{ '--c': T[k].color }} onClick={() => setTab(k)}>
+                      {T[k].icon} {k === 'wish' ? 'গোপন ইচ্ছা' : 'পছন্দ ও ইতিহাস'}
+                    </button>
+                  ))}
+                </div>
+                <p className="muted">🛡️ ⛔ থামুন বাটন সব গেমেই আছে। কেউ অস্বস্তি বোধ করলে সাথে সাথে থামান। 💗</p>
+              </>
+            )}
+
             {isGameTab && (
               <>
                 <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>{T[tab].icon} {T[tab].title}</h2>
+                <div className="stkrow">
+                  {T[tab].stk.map((e, i) => (
+                    <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26, animationDelay: i * 0.3 + 's' }}>{e}</span>
+                  ))}
+                </div>
                 <p className="muted" style={{ margin: 0 }}>{T[tab].desc}</p>
 
                 <div className="glass" style={{ padding: 12 }}>
@@ -431,6 +504,9 @@ export default function Home() {
             {tab === 'wish' && (
               <>
                 <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>💭 গোপন ইচ্ছা</h2>
+                <div className="stkrow">
+                  {T.wish.stk.map((e, i) => <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26 }}>{e}</span>)}
+                </div>
                 <p className="muted">নিজের ইচ্ছা লিখুন। এগুলো পার্টনার দেখবে না। দুজনের একই ইচ্ছা মিললে শুধু তখনই নিচে দেখাবে। 🤫</p>
                 <div className="glass">
                   <input className="inp" placeholder="যেমন: একসাথে সিনেমা দেখা" value={wish} onChange={(e) => setWish(e.target.value)} />
@@ -451,6 +527,9 @@ export default function Home() {
             {tab === 'history' && (
               <>
                 <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>⭐ পছন্দ ও ইতিহাস</h2>
+                <div className="stkrow">
+                  {T.history.stk.map((e, i) => <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26 }}>{e}</span>)}
+                </div>
                 <div className="h3">⭐ পছন্দের তালিকা</div>
                 {favs.length === 0 && <p className="muted">এখনো কিছু সেভ করা নেই</p>}
                 {favs.map((f) => <div key={f.activity_id} className="item">{f.activities?.title}</div>)}
