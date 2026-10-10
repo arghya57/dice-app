@@ -3,9 +3,18 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
 const KINDS = { action: 'অ্যাকশন', modifier: 'মডিফায়ার (কোথায়/কীভাবে)', truth: 'ট্রুথ', dare: 'ডেয়ার', card: 'কার্ড' };
-const LEVELS = { 1: 'লেভেল ১ · হালকা', 2: 'লেভেল ২ · রোমান্টিক', 3: 'লেভেল ৩ · ইন্টিমেট' };
+const DEF_LEVELS = {
+  1: { name: 'লেভেল ১ · হালকা', icon: '🌸' },
+  2: { name: 'লেভেল ২ · রোমান্টিক', icon: '💋' },
+  3: { name: 'লেভেল ৩ · ইন্টিমেট', icon: '🔥' },
+};
+const GENDERS = { any: '👫 সবার জন্য', male: '♂️ পুরুষ', female: '♀️ নারী' };
 const MOODS = { any: 'যেকোনো', romantic: 'রোমান্টিক', naughty: 'দুষ্টু', tired: 'ক্লান্ত' };
-const EMPTY = { title: '', kind: 'action', level: 1, mood: 'any', seconds: 0, image_url: '' };
+const EMPTY = { title: '', kind: 'action', level: 1, mood: 'any', seconds: 0, image_url: '', gender: 'any' };
+const BOXES = [
+  ['action', '📦 বক্স ১ · কী করবেন', 'যে ডাইস ফেলছে তার লিঙ্গ অনুযায়ী আসবে (যেমন: ম্যাসাজ, চুমু)'],
+  ['modifier', '📦 বক্স ২ · কোথায়/কীভাবে', 'পার্টনারের লিঙ্গ অনুযায়ী আসবে (যেমন: ঘাড়, ধীরে ধীরে)'],
+];
 const BUCKET = 'card-images';
 
 // ছবি ছোট করে JPEG বানায় (ফ্রি স্টোরেজ বাঁচাতে + দ্রুত লোডের জন্য)
@@ -36,10 +45,22 @@ export default function Admin() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState('dice');
+  const [diceG, setDiceG] = useState('any');
+  const [qa, setQa] = useState({ action: { title: '', level: 1 }, modifier: { title: '', level: 1 } });
+  const [levels, setLevels] = useState(DEF_LEVELS);
 
   const load = async () => {
     const { data } = await supabase.from('activities').select('*').order('id');
     setList(data || []);
+    const { data: lv } = await supabase.from('levels').select('*').order('id');
+    if (lv?.length) {
+      setLevels((prev) => {
+        const n = { ...prev };
+        lv.forEach((r) => { n[r.id] = { name: r.name, icon: r.icon || prev[r.id]?.icon || '' }; });
+        return n;
+      });
+    }
   };
 
   useEffect(() => {
@@ -87,6 +108,7 @@ export default function Admin() {
         mood: form.mood,
         seconds: Number(form.seconds) || 0,
         image_url,
+        gender: ['action', 'modifier'].includes(form.kind) ? form.gender : 'any',
       };
       const { error } = editId
         ? await supabase.from('activities').update(row).eq('id', editId)
@@ -104,9 +126,36 @@ export default function Admin() {
   const edit = (a) => {
     setEditId(a.id);
     setFile(null); setPreview('');
-    setForm({ title: a.title, kind: a.kind, level: a.level, mood: a.mood, seconds: a.seconds, image_url: a.image_url || '' });
+    setForm({ title: a.title, kind: a.kind, level: a.level, mood: a.mood, seconds: a.seconds, image_url: a.image_url || '', gender: a.gender || 'any' });
+    setView('all');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // ডাইস বক্সে দ্রুত অপশন যোগ
+  const quickAdd = async (kind) => {
+    const q = qa[kind];
+    if (!q.title.trim()) return setMsg('লেখা দিন');
+    const { error } = await supabase.from('activities').insert({
+      title: q.title.trim(), kind, level: Number(q.level), mood: 'any', seconds: 0, gender: diceG, image_url: null,
+    });
+    if (error) return setMsg(error.message);
+    setQa((p) => ({ ...p, [kind]: { ...p[kind], title: '' } }));
+    setMsg('✅ বক্সে যোগ হয়েছে');
+    load();
+  };
+
+  const saveLevels = async () => {
+    const rows = [1, 2, 3].map((id) => ({
+      id,
+      name: (levels[id]?.name || '').trim() || DEF_LEVELS[id].name,
+      icon: (levels[id]?.icon || '').trim() || DEF_LEVELS[id].icon,
+    }));
+    const { error } = await supabase.from('levels').upsert(rows, { onConflict: 'id' });
+    if (error) return setMsg('সেভ হয়নি: ' + error.message);
+    setMsg('✅ লেভেলের নাম সেভ হয়েছে');
+    load();
+  };
+  const setLv = (id, k, v) => setLevels((p) => ({ ...p, [id]: { ...p[id], [k]: v } }));
 
   const cancel = () => { resetForm(); setMsg(''); };
 
@@ -132,12 +181,85 @@ export default function Admin() {
   if (!ok) return <div style={box}>শুধু অ্যাডমিন ঢুকতে পারবে। <a href="/" style={{ color: '#ffd369' }}>হোমে যান</a></div>;
 
   const shown = list.filter((a) => filter === 'all' || a.kind === filter);
+  const boxItems = (kind) => list.filter((a) => a.kind === kind && (a.gender || 'any') === diceG);
+  const lvName = (n) => `${levels[n]?.icon || ''} ${levels[n]?.name || 'লেভেল ' + n}`;
+  const panel = { background: '#16213e', padding: 12, borderRadius: 12, margin: '10px 0' };
+  const levelOptions = Object.keys(DEF_LEVELS).map((k) => <option key={k} value={k}>{lvName(k)}</option>);
 
   return (
     <div style={box}>
       <h2>⚙️ অ্যাডমিন প্যানেল</h2>
       <a href="/" style={{ color: '#ffd369' }}>← হোম</a>
 
+      <div style={{ margin: '10px 0' }}>
+        {[['dice', '🎲 ডাইস বক্স'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
+          <button key={k} style={chip(view === k)} onClick={() => { setView(k); setMsg(''); }}>{l}</button>)}
+      </div>
+      {msg && view !== 'all' && <p style={{ color: '#ffd369' }}>{msg}</p>}
+
+      {view === 'dice' && (
+        <>
+          <p style={{ fontSize: 13, color: '#aaa' }}>
+            ডাইসে দুটি বক্স আসে। কোন লিঙ্গের জন্য অপশন বসাতে চান, আগে সেটা বাছুন। "সবার জন্য" দিলে যেকোনো লিঙ্গের কাছে আসবে।
+          </p>
+          <div>
+            {Object.entries(GENDERS).map(([k, l]) =>
+              <button key={k} style={chip(diceG === k)} onClick={() => setDiceG(k)}>{l}</button>)}
+          </div>
+          {BOXES.map(([kind, title, hint]) => (
+            <div key={kind} style={panel}>
+              <div style={{ fontSize: 17 }}>{title} ({boxItems(kind).length})</div>
+              <small style={{ color: '#aaa' }}>{hint}</small>
+              <div style={{ margin: '8px 0' }}>
+                <input
+                  style={inp}
+                  placeholder="নতুন অপশন লিখুন"
+                  value={qa[kind].title}
+                  onChange={(e) => setQa((p) => ({ ...p, [kind]: { ...p[kind], title: e.target.value } }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') quickAdd(kind); }}
+                />
+                <select
+                  style={inp}
+                  value={qa[kind].level}
+                  onChange={(e) => setQa((p) => ({ ...p, [kind]: { ...p[kind], level: e.target.value } }))}
+                >
+                  {levelOptions}
+                </select>
+                <button style={btn} onClick={() => quickAdd(kind)}>➕ বক্সে যোগ করুন</button>
+              </div>
+              {boxItems(kind).map((a) => (
+                <div key={a.id} style={{ background: '#0f1a33', padding: 10, borderRadius: 8, margin: '6px 0', opacity: a.is_active ? 1 : 0.5 }}>
+                  <div style={{ fontSize: 16 }}>{a.title}</div>
+                  <small>{lvName(a.level)} · {a.is_active ? 'চালু' : 'বন্ধ'}</small>
+                  <div>
+                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(a)}>এডিট</button>
+                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => del(a)}>মুছুন</button>
+                  </div>
+                </div>
+              ))}
+              {boxItems(kind).length === 0 && <small style={{ color: '#888' }}>এই লিঙ্গের জন্য এখনো কিছু নেই</small>}
+            </div>
+          ))}
+        </>
+      )}
+
+      {view === 'levels' && (
+        <>
+          <p style={{ fontSize: 13, color: '#aaa' }}>প্রতিটি লেভেলের আইকন ও নাম বদলান। অ্যাপের সব জায়গায় এই নাম দেখাবে।</p>
+          {[1, 2, 3].map((id) => (
+            <div key={id} style={panel}>
+              <label style={lbl}>লেভেল {id}</label>
+              <input style={{ ...inp, width: 70, textAlign: 'center', display: 'inline-block' }} value={levels[id]?.icon || ''} onChange={(e) => setLv(id, 'icon', e.target.value)} />
+              <input style={{ ...inp, width: 'calc(100% - 80px)', marginLeft: 8, display: 'inline-block' }} value={levels[id]?.name || ''} onChange={(e) => setLv(id, 'name', e.target.value)} />
+            </div>
+          ))}
+          <button style={btn} onClick={saveLevels}>💾 সেভ করুন</button>
+        </>
+      )}
+
+      {view === 'all' && (
+      <>
       <h3>{editId ? '✏️ এডিট করুন' : 'নতুন অ্যাক্টিভিটি'}</h3>
       <input style={inp} placeholder="লেখা, যেমন: পিঠে ম্যাসাজ" value={form.title} onChange={(e) => set('title', e.target.value)} />
 
@@ -148,8 +270,17 @@ export default function Admin() {
 
       <label style={lbl}>লেভেল</label>
       <select style={inp} value={form.level} onChange={(e) => set('level', e.target.value)}>
-        {Object.entries(LEVELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        {levelOptions}
       </select>
+
+      {['action', 'modifier'].includes(form.kind) && (
+        <>
+          <label style={lbl}>কোন লিঙ্গের জন্য (ডাইস)</label>
+          <select style={inp} value={form.gender} onChange={(e) => set('gender', e.target.value)}>
+            {Object.entries(GENDERS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </>
+      )}
 
       <label style={lbl}>মুড</label>
       <select style={inp} value={form.mood} onChange={(e) => set('mood', e.target.value)}>
@@ -188,7 +319,8 @@ export default function Admin() {
           {a.image_url && <img src={a.image_url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, float: 'right', marginLeft: 8 }} />}
           <div style={{ fontSize: 18 }}>{a.title}</div>
           <small>
-            {KINDS[a.kind]?.split(' ')[0]} · লেভেল {a.level} · {MOODS[a.mood]}
+            {KINDS[a.kind]?.split(' ')[0]} · {lvName(a.level)} · {MOODS[a.mood]}
+            {['action', 'modifier'].includes(a.kind) ? ` · ${GENDERS[a.gender || 'any']}` : ''}
             {a.seconds > 0 ? ` · ${a.seconds}সে` : ''} · {a.is_active ? 'চালু' : 'বন্ধ'}
           </small>
           <div>
@@ -198,6 +330,8 @@ export default function Admin() {
           </div>
         </div>
       ))}
+      </>
+      )}
     </div>
   );
 }
