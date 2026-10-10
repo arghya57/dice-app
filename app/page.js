@@ -255,6 +255,7 @@ export default function Home() {
 
       {user && adult && room && (
         <>
+        <button style={{ ...grey, fontSize: 12 }} onClick={leaveRoom}>← রুম বদলান</button>
           <p>রুম কোড: <b style={{ fontSize: 22, letterSpacing: 3 }}>{room.code}</b>
             {!room.partner2_id && <><br /><small>পার্টনারের জন্য অপেক্ষা...</small></>}</p>
 
