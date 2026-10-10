@@ -201,4 +201,182 @@ export default function Home() {
   };
   const delWish = async (id) => { await supabase.from('wishes').delete().eq('id', id); loadWishes(); };
 
-  const box = { maxWidth: 440, margin
+  const box = { maxWidth: 440, margin: '0 auto', padding: 16, textAlign: 'center' };
+  const inp = { width: '100%', padding: 12, margin: '6px 0', borderRadius: 8, border: 'none', boxSizing: 'border-box', fontSize: 16 };
+  const btn = { padding: '10px 16px', margin: 4, borderRadius: 8, border: 'none', background: '#e94560', color: '#fff', fontSize: 15 };
+  const grey = { ...btn, background: '#444' };
+  const card = { background: '#16213e', padding: 16, borderRadius: 12, margin: '10px 0', fontSize: 20 };
+  const chip = (on) => ({ ...btn, padding: '7px 12px', fontSize: 13, background: on ? '#e94560' : '#333' });
+
+  const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+  const ss = String(secs % 60).padStart(2, '0');
+  const bothVoted = result && result.total >= 2;
+  const verdict = !bothVoted ? null
+    : result.no > 0 ? '😌 আজ না, অন্য কিছু বেছে নিন'
+    : result.yes === 2 ? '💖 দুজনেই হ্যাঁ!' : '🤔 দুজনেই রাজি, তবে ধীরে';
+
+  // এই ট্যাবের জন্য ফলাফল দেখানো হবে কিনা
+  const showCur = cur && (cur.stopped || (cur.a?.kind === 'card') === isCardTab);
+  const showRolling = rolling && rollCard === isCardTab;
+
+  return (
+    <div style={box}>
+      <style>{`@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(720deg)}}
+@keyframes shuf{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(-40px) rotate(-12deg)}50%{transform:translateX(40px) rotate(12deg)}75%{transform:translateX(-25px) rotate(-6deg)}100%{transform:translateX(0) rotate(0)}}
+@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}`}</style>
+      <h1>🎲 Dice App</h1>
+
+      {!user && (
+        <>
+          <input style={inp} placeholder="ইমেইল" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input style={inp} type="password" placeholder="পাসওয়ার্ড (৬+ অক্ষর)" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <button style={btn} onClick={signIn}>লগইন</button>
+          <button style={btn} onClick={signUp}>সাইন আপ</button>
+        </>
+      )}
+
+      {user && adult === false && (
+        <div style={card}>
+          <p style={{ fontSize: 16 }}>এই অ্যাপ শুধু প্রাপ্তবয়স্ক দম্পতির জন্য। সব কিছু পারস্পরিক সম্মতিতে, যেকোনো সময় থামানো যাবে।</p>
+          <label style={{ fontSize: 16 }}>
+            <input type="checkbox" checked={tick} onChange={(e) => setTick(e.target.checked)} /> আমার বয়স ১৮+ এবং আমি রাজি
+          </label>
+          <div><button style={btn} onClick={confirmAdult}>চালিয়ে যান</button></div>
+        </div>
+      )}
+
+      {user && adult && !room && (
+        <>
+          <button style={btn} onClick={createRoom}>নতুন রুম বানান</button>
+          <p>অথবা রুম কোড দিয়ে জয়েন করুন</p>
+          <input style={inp} placeholder="রুম কোড" value={code} onChange={(e) => setCode(e.target.value)} />
+          <button style={btn} onClick={joinRoom}>জয়েন</button>
+        </>
+      )}
+
+      {user && adult && room && (
+        <>
+          <p>রুম কোড: <b style={{ fontSize: 22, letterSpacing: 3 }}>{room.code}</b>
+            {!room.partner2_id && <><br /><small>পার্টনারের জন্য অপেক্ষা...</small></>}</p>
+
+          <div>
+            {[['dice', '🎲 ডাইস'], ['card', '🃏 কার্ড'], ['wish', '💭 উইশ'], ['history', '⭐ হিস্ট্রি']].map(([k, l]) =>
+              <button key={k} style={chip(tab === k)} onClick={() => setTab(k)}>{l}</button>)}
+          </div>
+
+          {isGameTab && (
+            <>
+              <div style={{ fontSize: 13, margin: '8px 0' }}>
+                আমি রাজি: {[1, 2, 3].map((n) =>
+                  <button key={n} style={chip(myLevel === n)} onClick={() => setLevel(n)}>{n}</button>)}
+                <br />দুজনের মিল: <b>{LEVELS[eff]}</b>
+              </div>
+              <div>
+                {Object.entries(MOODS).map(([k, l]) =>
+                  <button key={k} style={chip(mood === k)} onClick={() => setMood(k)}>{l}</button>)}
+              </div>
+
+              {tab === 'dice' && (
+                <div>
+                  {[['dice', 'দুই ডাইস'], ['truth', 'ট্রুথ'], ['dare', 'ডেয়ার']].map(([k, l]) =>
+                    <button key={k} style={chip(mode === k)} onClick={() => setMode(k)}>{l}</button>)}
+                </div>
+              )}
+
+              {isCardTab ? (
+                <div style={{ height: 150, margin: '10px 0' }}>
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} style={{
+                      display: 'inline-block', width: 90, height: 130, margin: '0 -20px',
+                      borderRadius: 10, background: '#111', border: '2px solid #e94560',
+                      fontSize: 36, lineHeight: '130px',
+                      transform: `rotate(${(i - 1) * 10}deg)`,
+                      animation: showRolling ? `shuf 0.5s ${i * 0.1}s infinite` : 'none'
+                    }}>🃏</div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 80, animation: showRolling ? 'spin 1.2s ease-out' : 'none' }}>
+                  {mode === 'dice' ? '🎲🎲' : mode === 'truth' ? '💬' : '🔥'}
+                </div>
+              )}
+
+              {cur?.stopped && !rolling && <div style={{ ...card, background: '#5a1a1a' }}>⛔ থামানো হয়েছে। কোনো সমস্যা নেই।</div>}
+
+              {showCur && !cur.stopped && !rolling && (
+                <>
+                  <div style={{ ...card, animation: isCardTab ? 'flip .6s ease-out' : 'none', border: isCardTab ? '2px solid #e94560' : 'none' }}>
+                    {cur.a?.title}
+                    {cur.b && <div style={{ color: '#ffd369', marginTop: 8 }}>{cur.b.title}</div>}
+                    <div style={{ marginTop: 8 }}>
+                      <button style={grey} onClick={() => toggleFav(cur.a)}>
+                        {favs.some((f) => f.activity_id === cur.a?.id) ? '⭐ সেভ করা' : '☆ সেভ'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 14 }}>গোপন ভোট (শুধু ফলাফল দেখা যাবে)</div>
+                  {!myVote ? (
+                    <div>
+                      <button style={btn} onClick={() => castVote('yes')}>✅ হ্যাঁ</button>
+                      <button style={grey} onClick={() => castVote('maybe')}>🤔 হয়তো</button>
+                      <button style={grey} onClick={() => castVote('no')}>❌ না</button>
+                    </div>
+                  ) : (
+                    <p>{verdict || 'ভোট দিয়েছেন, পার্টনারের অপেক্ষা...'}</p>
+                  )}
+
+                  <div style={{ margin: '10px 0' }}>
+                    <div style={{ fontSize: 40 }}>{mm}:{ss}</div>
+                    {[60, 180, 300].map((s) =>
+                      <button key={s} style={chip(false)} onClick={() => { setSecs(s); setRunning(true); }}>{s / 60} মিনিট</button>)}
+                    {secs > 0 && <button style={chip(false)} onClick={() => setRunning(!running)}>{running ? 'পজ' : 'শুরু'}</button>}
+                  </div>
+                </>
+              )}
+
+              <div>
+                <button style={btn} onClick={roll} disabled={rolling}>{isCardTab ? '🃏 কার্ড তুলুন' : 'রোল করুন'}</button>
+                {showCur && !cur.stopped && !rolling && <button style={grey} onClick={roll}>পাস করুন</button>}
+                <button style={{ ...btn, background: '#b00020' }} onClick={stop}>⛔ থামুন</button>
+              </div>
+            </>
+          )}
+
+          {tab === 'wish' && (
+            <>
+              <p style={{ fontSize: 14 }}>নিজের ইচ্ছা লিখুন। এগুলো পার্টনার দেখবে না। দুজনের একই ইচ্ছা মিললে শুধু তখনই নিচে দেখাবে।</p>
+              <input style={inp} placeholder="যেমন: একসাথে সিনেমা দেখা" value={wish} onChange={(e) => setWish(e.target.value)} />
+              <button style={btn} onClick={addWish}>যোগ করুন</button>
+              <h3>💞 দুজনের মিল</h3>
+              {matches.length === 0 ? <p style={{ fontSize: 14 }}>এখনো কিছু মেলেনি</p> :
+                matches.map((m) => <div key={m} style={card}>{m}</div>)}
+              <h3>আমার তালিকা</h3>
+              {wishes.filter((w) => w.user_id === user.id).map((w) => (
+                <div key={w.id} style={{ ...card, fontSize: 16 }}>
+                  {w.body} <button style={grey} onClick={() => delWish(w.id)}>মুছুন</button>
+                </div>))}
+            </>
+          )}
+
+          {tab === 'history' && (
+            <>
+              <h3>⭐ পছন্দের তালিকা</h3>
+              {favs.length === 0 && <p style={{ fontSize: 14 }}>এখনো কিছু সেভ করা নেই</p>}
+              {favs.map((f) => <div key={f.activity_id} style={{ ...card, fontSize: 16 }}>{f.activities?.title}</div>)}
+              <h3>🕘 সাম্প্রতিক রোল</h3>
+              {history.map((h) => (
+                <div key={h.id} style={{ ...card, fontSize: 15 }}>
+                  {h.a?.title}{h.b ? ' · ' + h.b.title : ''}
+                  <br /><small>{new Date(h.created_at).toLocaleString('bn-BD')}</small>
+                </div>))}
+            </>
+          )}
+        </>
+      )}
+
+      {msg && <p style={{ color: '#ffd369' }}>{msg}</p>}
+      {user && <button style={{ ...grey, fontSize: 13, background: '#333' }} onClick={signOut}>লগআউট</button>}
+    </div>
+  );
+}
