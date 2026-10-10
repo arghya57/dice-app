@@ -11,6 +11,7 @@ const DEF_LEVELS = {
 const GENDERS = { any: '👫 সবার জন্য', male: '♂️ পুরুষ', female: '♀️ নারী' };
 const MOODS = { any: 'যেকোনো', romantic: 'রোমান্টিক', naughty: 'দুষ্টু', tired: 'ক্লান্ত' };
 const EMPTY = { title: '', kind: 'action', level: 1, mood: 'any', seconds: 0, image_url: '', gender: 'any' };
+const GEMPTY = { kind: 'gift', name: '', emoji: '🎁', level: 1, points: 5, price: 10, image_url: '' };
 const BOXES = [
   ['action', '📦 বক্স ১ · কী করবেন', 'যে ডাইস ফেলছে তার লিঙ্গ অনুযায়ী আসবে (যেমন: ম্যাসাজ, চুমু)'],
   ['modifier', '📦 বক্স ২ · কোথায়/কীভাবে', 'পার্টনারের লিঙ্গ অনুযায়ী আসবে (যেমন: ঘাড়, ধীরে ধীরে)'],
@@ -49,6 +50,14 @@ export default function Admin() {
   const [diceG, setDiceG] = useState('any');
   const [qa, setQa] = useState({ action: { title: '', level: 1 }, modifier: { title: '', level: 1 } });
   const [levels, setLevels] = useState(DEF_LEVELS);
+  // গিফট
+  const [gifts, setGifts] = useState([]);
+  const [gf, setGf] = useState(GEMPTY);
+  const [gEditId, setGEditId] = useState(null);
+  const [gFile, setGFile] = useState(null);
+  const [gPrev, setGPrev] = useState('');
+  const [rules, setRules] = useState([{ level: 1, coins: 5 }, { level: 2, coins: 10 }, { level: 3, coins: 20 }]);
+  const [giveF, setGiveF] = useState({ email: '', coins: 0, gift: '', qty: 1 });
 
   const load = async () => {
     const { data } = await supabase.from('activities').select('*').order('id');
@@ -61,6 +70,10 @@ export default function Admin() {
         return n;
       });
     }
+    const { data: gs } = await supabase.from('gifts').select('*').order('level').order('id');
+    setGifts(gs || []);
+    const { data: cr } = await supabase.from('coin_rules').select('*').order('level');
+    if (cr?.length) setRules(cr);
   };
 
   useEffect(() => {
@@ -171,6 +184,89 @@ export default function Admin() {
     load();
   };
 
+  // ---------- গিফট ----------
+  const setG = (k, v) => setGf((f) => ({ ...f, [k]: v }));
+
+  const pickGiftFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return setMsg('শুধু ছবি দিন');
+    if (f.size > 15 * 1024 * 1024) return setMsg('ছবি ১৫MB-এর বেশি বড়');
+    setMsg(''); setGFile(f); setGPrev(URL.createObjectURL(f));
+  };
+
+  const resetGift = () => { setGf(GEMPTY); setGEditId(null); setGFile(null); setGPrev(''); };
+
+  const saveGift = async () => {
+    if (!gf.name.trim()) return setMsg('নাম লিখুন');
+    setBusy(true);
+    try {
+      let image_url = gf.image_url || null;
+      if (gFile) {
+        const blob = await shrink(gFile);
+        const path = `gift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+        if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
+        image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      }
+      const row = {
+        kind: gf.kind,
+        name: gf.name.trim(),
+        emoji: (gf.emoji || '').trim() || '🎁',
+        level: Number(gf.level) || 1,
+        points: Number(gf.points) || 0,
+        price: Number(gf.price) || 0,
+        image_url,
+      };
+      const { error } = gEditId
+        ? await supabase.from('gifts').update(row).eq('id', gEditId)
+        : await supabase.from('gifts').insert(row);
+      if (error) return setMsg(error.message);
+      setMsg(gEditId ? '✅ আপডেট হয়েছে' : '✅ গিফট কার্ড যোগ হয়েছে');
+      resetGift(); load();
+    } catch (e) {
+      setMsg(e.message || 'কিছু একটা ভুল হয়েছে');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const editGift = (g) => {
+    setGEditId(g.id); setGFile(null); setGPrev('');
+    setGf({ kind: g.kind, name: g.name, emoji: g.emoji || '🎁', level: g.level, points: g.points, price: g.price, image_url: g.image_url || '' });
+    setView('gifts');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const toggleGift = async (g) => {
+    await supabase.from('gifts').update({ is_active: !g.is_active }).eq('id', g.id);
+    load();
+  };
+
+  const delGift = async (g) => {
+    if (!confirm('মুছবেন?')) return;
+    const { error } = await supabase.from('gifts').delete().eq('id', g.id);
+    if (error) setMsg('মুছা যায়নি (কারও কাছে আছে)। বন্ধ করে রাখুন।');
+    load();
+  };
+
+  const saveRules = async () => {
+    const { error } = await supabase.from('coin_rules')
+      .upsert(rules.map((r) => ({ level: r.level, coins: Number(r.coins) || 0 })), { onConflict: 'level' });
+    setMsg(error ? error.message : '✅ কয়েনের নিয়ম সেভ হয়েছে');
+  };
+
+  const giveToUser = async () => {
+    if (!giveF.email.trim()) return setMsg('ইমেইল দিন');
+    const { error } = await supabase.rpc('admin_give', {
+      p_email: giveF.email,
+      p_coins: Number(giveF.coins) || 0,
+      p_gift: giveF.gift ? Number(giveF.gift) : null,
+      p_qty: Number(giveF.qty) || 1,
+    });
+    setMsg(error ? error.message : '✅ দেওয়া হয়েছে');
+  };
+
   const box = { maxWidth: 480, margin: '0 auto', padding: 20 };
   const inp = { width: '100%', padding: 12, margin: '6px 0', borderRadius: 8, border: 'none', boxSizing: 'border-box', fontSize: 16 };
   const btn = { padding: '10px 16px', margin: 4, borderRadius: 8, border: 'none', background: '#e94560', color: '#fff', fontSize: 15 };
@@ -192,7 +288,7 @@ export default function Admin() {
       <a href="/" style={{ color: '#ffd369' }}>← হোম</a>
 
       <div style={{ margin: '10px 0' }}>
-        {[['dice', '🎲 ডাইস বক্স'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
+        {[['dice', '🎲 ডাইস বক্স'], ['gifts', '🎁 গিফট'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
           <button key={k} style={chip(view === k)} onClick={() => { setView(k); setMsg(''); }}>{l}</button>)}
       </div>
       {msg && view !== 'all' && <p style={{ color: '#ffd369' }}>{msg}</p>}
@@ -239,6 +335,87 @@ export default function Admin() {
                 </div>
               ))}
               {boxItems(kind).length === 0 && <small style={{ color: '#888' }}>এই লিঙ্গের জন্য এখনো কিছু নেই</small>}
+            </div>
+          ))}
+        </>
+      )}
+
+      {view === 'gifts' && (
+        <>
+          <div style={panel}>
+            <div style={{ fontSize: 17 }}>{gEditId ? '✏️ গিফট এডিট' : '➕ নতুন গিফট কার্ড'}</div>
+            <label style={lbl}>ধরন</label>
+            <select style={inp} value={gf.kind} onChange={(e) => setG('kind', e.target.value)}>
+              <option value="gift">🎁 সাধারণ গিফট কার্ড</option>
+              <option value="mystery">❓ মিস্ট্রি বক্স (ভেতরে র‍্যান্ডম কার্ড)</option>
+            </select>
+            <input style={inp} placeholder="নাম, যেমন: গোলাপ ফুল" value={gf.name} onChange={(e) => setG('name', e.target.value)} />
+            <label style={lbl}>ইমোজি (ছবি না থাকলে এটা দেখাবে)</label>
+            <input style={inp} value={gf.emoji} onChange={(e) => setG('emoji', e.target.value)} />
+            {gf.kind === 'gift' && (
+              <>
+                <label style={lbl}>লেভেল (১ সাধারণ · ২ রেয়ার · ৩ লেজেন্ডারি)</label>
+                <select style={inp} value={gf.level} onChange={(e) => setG('level', e.target.value)}>{levelOptions}</select>
+                <label style={lbl}>পয়েন্ট (কার্ডে দেখাবে)</label>
+                <input style={inp} type="number" min="0" value={gf.points} onChange={(e) => setG('points', e.target.value)} />
+              </>
+            )}
+            <label style={lbl}>দাম (কয়েন, ০ = শপে বিক্রি হবে না)</label>
+            <input style={inp} type="number" min="0" value={gf.price} onChange={(e) => setG('price', e.target.value)} />
+            <label style={lbl}>কার্ডের ছবি</label>
+            {(gPrev || gf.image_url) && (
+              <div>
+                <img src={gPrev || gf.image_url} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, margin: '6px 0' }} />
+                <button style={{ ...btn, background: '#8b1e2d' }} onClick={() => { setGFile(null); setGPrev(''); setG('image_url', ''); }}>ছবি সরান</button>
+              </div>
+            )}
+            <input style={{ ...inp, background: '#0f1a33', color: '#fff' }} type="file" accept="image/*" onChange={pickGiftFile} />
+            <button style={btn} onClick={saveGift} disabled={busy}>{busy ? 'অপেক্ষা করুন...' : gEditId ? 'সেভ করুন' : 'যোগ করুন'}</button>
+            {gEditId && <button style={{ ...btn, background: '#555' }} onClick={resetGift}>বাতিল</button>}
+          </div>
+
+          <div style={panel}>
+            <div style={{ fontSize: 17 }}>🪙 হ্যাঁ দিলে কত কয়েন (লেভেল অনুযায়ী)</div>
+            {rules.map((r, i) => (
+              <div key={r.level}>
+                <label style={lbl}>{lvName(r.level)}</label>
+                <input style={inp} type="number" min="0" value={r.coins}
+                  onChange={(e) => setRules((p) => p.map((x, j) => (j === i ? { ...x, coins: e.target.value } : x)))} />
+              </div>
+            ))}
+            <button style={btn} onClick={saveRules}>💾 সেভ করুন</button>
+          </div>
+
+          <div style={panel}>
+            <div style={{ fontSize: 17 }}>👑 ইউজারকে কয়েন/গিফট দিন</div>
+            <input style={inp} placeholder="ইউজারের ইমেইল" value={giveF.email} onChange={(e) => setGiveF((p) => ({ ...p, email: e.target.value }))} />
+            <label style={lbl}>কয়েন (মাইনাস দিলে কাটা যাবে)</label>
+            <input style={inp} type="number" value={giveF.coins} onChange={(e) => setGiveF((p) => ({ ...p, coins: e.target.value }))} />
+            <label style={lbl}>গিফট কার্ড (ঐচ্ছিক)</label>
+            <select style={inp} value={giveF.gift} onChange={(e) => setGiveF((p) => ({ ...p, gift: e.target.value }))}>
+              <option value="">— কোনো কার্ড নয় —</option>
+              {gifts.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+            </select>
+            <label style={lbl}>কয়টি কার্ড (সর্বোচ্চ ২০)</label>
+            <input style={inp} type="number" min="1" value={giveF.qty} onChange={(e) => setGiveF((p) => ({ ...p, qty: e.target.value }))} />
+            <button style={btn} onClick={giveToUser}>🎁 দিন</button>
+          </div>
+
+          <h3>সব গিফট কার্ড ({gifts.length})</h3>
+          {gifts.map((g) => (
+            <div key={g.id} style={{ ...panel, opacity: g.is_active ? 1 : 0.5 }}>
+              {g.image_url
+                ? <img src={g.image_url} alt="" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8, float: 'right', marginLeft: 8 }} />
+                : <div style={{ fontSize: 44, float: 'right', marginLeft: 8 }}>{g.emoji}</div>}
+              <div style={{ fontSize: 17 }}>{g.name}</div>
+              <small>
+                {g.kind === 'mystery' ? '❓ মিস্ট্রি বক্স' : `${lvName(g.level)} · ⭐ ${g.points}`} · 🪙 {g.price} · {g.is_active ? 'চালু' : 'বন্ধ'}
+              </small>
+              <div>
+                <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => editGift(g)}>এডিট</button>
+                <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleGift(g)}>{g.is_active ? 'বন্ধ' : 'চালু'}</button>
+                <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delGift(g)}>মুছুন</button>
+              </div>
             </div>
           ))}
         </>
