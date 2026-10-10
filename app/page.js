@@ -32,7 +32,7 @@ const HERO_STICKERS = [['💋', -12], ['😍', 8], ['🔥', -6], ['🫦', 12], [
 const tabOfAct = (a) => (a?.kind === 'card' ? 'card' : a?.kind === 'truth' ? 'truth' : a?.kind === 'dare' ? 'dare' : 'dice');
 
 const CSS = `
-.app{position:relative;min-height:100vh;padding:18px 16px 120px;max-width:460px;margin:0 auto;text-align:center;overflow-x:hidden;font-family:'Hind Siliguri',sans-serif}
+.app{position:relative;min-height:100vh;padding:128px 46px 50px;max-width:460px;margin:0 auto;text-align:center;overflow-x:hidden;font-family:'Hind Siliguri',sans-serif}
 .bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 18% 8%,#4d0b30 0,transparent 46%),radial-gradient(circle at 88% 30%,#3a0a48 0,transparent 42%),radial-gradient(circle at 50% 105%,#5e0f20 0,transparent 52%),#0b0210}
 .float{position:fixed;font-size:28px;opacity:.14;animation:drift 14s ease-in-out infinite;pointer-events:none;z-index:0}
 .z{position:relative;z-index:1}
@@ -86,6 +86,17 @@ const CSS = `
 @keyframes shuf{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(-40px) rotate(-12deg)}50%{transform:translateX(40px) rotate(12deg)}75%{transform:translateX(-25px) rotate(-6deg)}100%{transform:translateX(0) rotate(0)}}
 @keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
 @keyframes drift{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-28px) rotate(10deg)}}
+.side{position:fixed;top:130px;bottom:50px;width:44px;z-index:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-around;align-items:center;font-size:30px;opacity:.75}
+.side.l{left:2px}.side.r{right:2px}
+.side span{display:block;animation:sway 3s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(255,150,200,.6))}
+.side .dn{animation:dance 1.1s ease-in-out infinite;font-size:36px}
+.waves{position:fixed;left:0;right:0;bottom:0;z-index:0;pointer-events:none;font-size:26px;white-space:nowrap;overflow:hidden;opacity:.55;line-height:1}
+.waves div{display:inline-block;animation:wave 14s linear infinite}
+.beach{font-size:38px;margin:6px 0;white-space:nowrap}
+.beach span{display:inline-block;animation:dance 1.3s ease-in-out infinite}
+@keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(-4px)}}
+@keyframes dance{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-12px) rotate(10deg)}}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @keyframes pop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes wob{0%,100%{transform:rotate(var(--r,0deg)) scale(1)}50%{transform:rotate(calc(var(--r,0deg) * -1)) scale(1.08)}}
 `;
