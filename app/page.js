@@ -14,6 +14,7 @@ const T = {
   dare:    { icon: '🔥', label: 'ডেয়ার',   color: '#ff4d2e', title: 'ডেয়ার',     desc: 'সাহস আছে? পিছিয়ে যাবেন না 😈', hero: '🔥😈', btn: '🔥 ডেয়ার নিন', stk: ['😈', '🥵', '💥', '🍑'] },
   wish:    { icon: '💭', label: 'উইশ',    color: '#ff7eb6', title: 'গোপন ইচ্ছা', desc: '', hero: '', btn: '', stk: ['🤫', '💌', '🌙'] },
   history: { icon: '⭐', label: 'হিস্ট্রি', color: '#ffd369', title: 'পছন্দ ও ইতিহাস', desc: '', hero: '', btn: '', stk: ['⭐', '💝', '🕰️'] },
+  chat:    { icon: '🗨️', label: 'চ্যাট',   color: '#5ec8ff', title: 'রুম চ্যাট', desc: '', hero: '', btn: '', stk: ['💌', '😘', '🫶'] },
 };
 const GAME_TABS = ['dice', 'card', 'truth', 'dare'];
 const HUB_TEXT = {
@@ -22,6 +23,7 @@ const HUB_TEXT = {
   truth: 'সত্যি বলার খেলা',
   dare: 'সাহসের চ্যালেঞ্জ',
 };
+const QUICK_MSGS = ['😘 আমি রেডি', '⏳ একটু অপেক্ষা করো', '🔄 অন্যটা দাও', '💗 একটু বিরতি চাই', '🔥 আরও চাই'];
 const FLOATERS = [
   ['💋', '6%', '12%', '0s'], ['🔥', '82%', '8%', '2s'], ['😈', '12%', '48%', '4s'], ['🌹', '88%', '42%', '1s'],
   ['🍷', '8%', '78%', '3s'], ['🥵', '78%', '74%', '5s'], ['🍑', '46%', '90%', '2.5s'], ['💞', '50%', '4%', '6s'],
@@ -33,6 +35,12 @@ const FLOATERS = [
 const HERO_STICKERS = [['💏', -12], ['😍', 8], ['👩‍❤️‍💋‍👨', -6], ['🫦', 12], ['💑', -10], ['😈', 6], ['💋', -8], ['🔥', 10]];
 
 const tabOfAct = (a) => (a?.kind === 'card' ? 'card' : a?.kind === 'truth' ? 'truth' : a?.kind === 'dare' ? 'dare' : 'dice');
+
+const urlB64ToUint8Array = (b64) => {
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+};
 
 const CSS = `
 .app{position:relative;min-height:100vh;padding:128px 46px 50px;max-width:460px;margin:0 auto;text-align:center;overflow-x:hidden;font-family:'Hind Siliguri',sans-serif}
@@ -93,6 +101,24 @@ const CSS = `
 .waves div{display:inline-block;animation:wave 14s linear infinite}
 .beach{font-size:38px;margin:6px 0;white-space:nowrap}
 .beach span{display:inline-block;animation:dance 1.3s ease-in-out infinite}
+.tabs button{position:relative}
+.tabs button .dot{position:absolute;top:2px;right:6px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#ff2d55;color:#fff;font-size:11px;line-height:18px;font-weight:700;box-shadow:0 0 10px rgba(255,45,85,.8)}
+.status{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:6px 0}
+.status .badge.turn{border-color:var(--accent);box-shadow:0 0 14px -4px var(--accent)}
+.status .badge.wait{opacity:.8}
+.dotp{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#777;vertical-align:middle}
+.dotp.on{background:#3ddc84;box-shadow:0 0 8px #3ddc84}
+.notice{padding:10px 14px;border-radius:16px;margin:8px 0;font-size:15px;cursor:pointer;background:rgba(94,200,255,.14);border:1px solid rgba(94,200,255,.5)}
+.chatbox{height:46vh;overflow-y:auto;text-align:left;padding:12px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}
+.bub{max-width:82%;padding:9px 13px;border-radius:18px;font-size:15px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
+.bub.me{align-self:flex-end;background:linear-gradient(135deg,#ff3d7f,#7a1fa2);border-bottom-right-radius:6px}
+.bub.th{align-self:flex-start;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);border-bottom-left-radius:6px}
+.bub small{display:block;font-size:10px;opacity:.65;margin-top:3px;text-align:right}
+.sendrow{display:flex;gap:6px;align-items:center}
+.sendrow .inp{margin:0;flex:1}
+.sendrow .btn{margin:0;flex:0 0 auto}
+.quick{margin:6px 0}
+.setbox{margin-top:14px}
 @keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(-4px)}}
 @keyframes dance{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-12px) rotate(10deg)}}
 @keyframes wave{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -128,13 +154,31 @@ export default function Home() {
   const [matches, setMatches] = useState([]);
   const [favs, setFavs] = useState([]);
   const [history, setHistory] = useState([]);
+  const [msgs, setMsgs] = useState([]);
+  const [chatText, setChatText] = useState('');
+  const [unread, setUnread] = useState(0);
+  const [online, setOnline] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushOk, setPushOk] = useState(false);
+  const [installEvt, setInstallEvt] = useState(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [standalone, setStandalone] = useState(false);
   const seenRoll = useRef(null);
   const actsRef = useRef([]);
   actsRef.current = acts;
+  const tabRef = useRef('home');
+  tabRef.current = tab;
+  const userIdRef = useRef(null);
+  userIdRef.current = user?.id ?? null;
+  const chatBoxRef = useRef(null);
 
   const isP1 = room && room.partner1_id === user?.id;
   const eff = room ? Math.min(room.p1_level, room.p2_level) : 1;
   const myLevel = room ? (isP1 ? room.p1_level : room.p2_level) : 1;
+  const partnerId = room ? (isP1 ? room.partner2_id : room.partner1_id) : null;
+  const partnerRef = useRef(null);
+  partnerRef.current = partnerId;
+  const myTurn = !room?.turn_user_id || room.turn_user_id === user?.id;
   const isGameTab = GAME_TABS.includes(tab);
   const accent = T[tab]?.color || '#ff3d7f';
 
@@ -142,6 +186,39 @@ export default function Home() {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
     return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // PWA: manifest, আইকন, service worker, ইন্সটল প্রম্পট
+  useEffect(() => {
+    const ua = navigator.userAgent || '';
+    setIsIOS(/iphone|ipad|ipod/i.test(ua));
+    setStandalone(!!(window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone));
+    setPushOk('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+
+    const addTag = (tag, attrs) => {
+      const key = tag === 'link' ? attrs.rel : attrs.name;
+      if (document.head.querySelector(`${tag}[${tag === 'link' ? 'rel' : 'name'}="${key}"]`)) return;
+      const el = document.createElement(tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      document.head.appendChild(el);
+    };
+    addTag('link', { rel: 'manifest', href: '/manifest.json' });
+    addTag('link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' });
+    addTag('meta', { name: 'theme-color', content: '#0b0210' });
+    addTag('meta', { name: 'apple-mobile-web-app-capable', content: 'yes' });
+    addTag('meta', { name: 'mobile-web-app-capable', content: 'yes' });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+    const onPrompt = (e) => { e.preventDefault(); setInstallEvt(e); };
+    const onInstalled = () => { setInstallEvt(null); setStandalone(true); };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
   }, []);
 
   useEffect(() => {
@@ -155,6 +232,7 @@ export default function Home() {
       .order('id', { ascending: false }).limit(1)
       .then(({ data }) => setRoom(data?.[0] ?? null));
     loadFavs();
+    syncPush();
   }, [user]);
 
   const loadFavs = async () => {
@@ -173,7 +251,7 @@ export default function Home() {
     setRollTab(tabOfAct(a));
     setRolling(true);
     setTimeout(() => {
-      setCur({ id: r.id, a, b });
+      setCur({ id: r.id, a, b, by: r.rolled_by });
       setSecs(a?.seconds || 0);
       setRolling(false);
     }, 1200);
@@ -189,15 +267,50 @@ export default function Home() {
     })();
   }, [room?.id]);
 
+  // রিয়েলটাইম: রোল, চ্যাট, রুমের পালা/লেভেল, পার্টনার অনলাইন কিনা
   useEffect(() => {
-    if (!room) return;
-    const channel = supabase.channel('room-' + room.id)
+    if (!room || !user) return;
+    setOnline(false);
+    const channel = supabase.channel('room-' + room.id, { config: { presence: { key: user.id } } })
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'rolls', filter: `room_id=eq.${room.id}` },
         (p) => showRoll(p.new))
-      .subscribe();
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${room.id}` },
+        (p) => {
+          const m = p.new;
+          setMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          if (m.user_id !== userIdRef.current && tabRef.current !== 'chat') {
+            setUnread((u) => u + 1);
+            if (navigator.vibrate) navigator.vibrate(60);
+          }
+        })
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${room.id}` },
+        (p) => setRoom(p.new))
+      .on('presence', { event: 'sync' }, () => {
+        const st = channel.presenceState();
+        setOnline(!!partnerRef.current && Object.keys(st).includes(partnerRef.current));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') await channel.track({ at: Date.now() });
+      });
     return () => { supabase.removeChannel(channel); };
+  }, [room?.id, user?.id]);
+
+  useEffect(() => {
+    if (!room) { setMsgs([]); setUnread(0); return; }
+    loadMsgs();
   }, [room?.id]);
+
+  useEffect(() => {
+    if (tab === 'chat') { setUnread(0); if (room) loadMsgs(); }
+  }, [tab]);
+
+  useEffect(() => {
+    const el = chatBoxRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [msgs.length, tab]);
 
   useEffect(() => {
     if (!room) return;
@@ -212,6 +325,7 @@ export default function Home() {
         if (r) setResult(r);
       }
       if (tab === 'wish') loadWishes();
+      if (tab === 'chat') loadMsgs();
     }, 3000);
     return () => clearInterval(t);
   }, [room?.id, cur?.id, tab]);
@@ -238,11 +352,81 @@ export default function Home() {
       .eq('room_id', room.id).eq('stopped', false).order('id', { ascending: false }).limit(30);
     setHistory(data || []);
   };
+  const loadMsgs = async () => {
+    if (!room) return;
+    const { data } = await supabase.from('messages').select('*')
+      .eq('room_id', room.id).order('id', { ascending: false }).limit(100);
+    if (data) setMsgs([...data].reverse());
+  };
   useEffect(() => {
     if (!room) return;
     if (tab === 'wish') loadWishes();
     if (tab === 'history') { loadHistory(); loadFavs(); }
   }, [tab, room?.id]);
+
+  // পুশ নোটিফিকেশন
+  const syncPush = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return;
+      const j = sub.toJSON();
+      await supabase.from('push_subscriptions').upsert({ endpoint: j.endpoint, sub: j }, { onConflict: 'endpoint' });
+      setPushOn(true);
+    } catch (e) { /* চুপচাপ */ }
+  };
+  const enablePush = async () => {
+    try {
+      const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!key) return setMsg('পুশ কী (VAPID) সেট করা নেই। সেটআপ গাইড দেখুন।');
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return setMsg('নোটিফিকেশনের অনুমতি দেওয়া হয়নি');
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(key) });
+      }
+      const j = sub.toJSON();
+      const { error } = await supabase.from('push_subscriptions')
+        .upsert({ user_id: user.id, endpoint: j.endpoint, sub: j }, { onConflict: 'endpoint' });
+      if (error) return setMsg(error.message);
+      setPushOn(true); setMsg('🔔 নোটিফিকেশন চালু হয়েছে');
+    } catch (e) {
+      setMsg('নোটিফিকেশন চালু করা যায়নি: ' + (e?.message || ''));
+    }
+  };
+  const removePush = async () => {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+    } catch (e) { /* চুপচাপ */ }
+    setPushOn(false);
+  };
+  const notifyPartner = async (kind) => {
+    try {
+      if (!room) return;
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ room_id: room.id, kind }),
+      });
+    } catch (e) { /* পুশ না গেলে খেলা থামবে না */ }
+  };
+  const installApp = async () => {
+    if (!installEvt) return;
+    installEvt.prompt();
+    await installEvt.userChoice.catch(() => {});
+    setInstallEvt(null);
+  };
 
   const signUp = async () => {
     const { error } = await supabase.auth.signUp({ email, password });
@@ -252,7 +436,11 @@ export default function Home() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setMsg(error.message);
   };
-  const signOut = () => { supabase.auth.signOut(); setRoom(null); setCur(null); setAdult(null); setTab('home'); };
+  const signOut = async () => {
+    await removePush();
+    supabase.auth.signOut();
+    setRoom(null); setCur(null); setAdult(null); setTab('home');
+  };
   const leaveRoom = () => { setRoom(null); setCur(null); setTab('home'); };
   const confirmAdult = async () => {
     if (!tick) return setMsg('বয়স ১৮+ কনফার্ম করতে টিক দিন');
@@ -280,6 +468,11 @@ export default function Home() {
     const { data } = await supabase.from('rooms').update({ [col]: n }).eq('id', room.id).select().single();
     if (data) setRoom(data);
   };
+  const handOver = async () => {
+    if (!partnerId) return;
+    const { data } = await supabase.from('rooms').update({ turn_user_id: partnerId }).eq('id', room.id).select().single();
+    if (data) setRoom(data);
+  };
 
   const pick = (kind) => {
     const pool = acts.filter((a) => a.kind === kind && a.level <= eff &&
@@ -288,16 +481,19 @@ export default function Home() {
   };
   const roll = async () => {
     if (!room?.partner2_id) return setMsg('পার্টনার এখনো জয়েন করেনি');
+    if (!myTurn) return setMsg('এখন পার্টনারের পালা, একটু অপেক্ষা করুন 💞');
     let a, b = null;
     if (tab === 'dice') { a = pick('action'); b = pick('modifier'); } else a = pick(tab);
     if (!a) return setMsg('এই লেভেল/মুডে কোনো অ্যাক্টিভিটি নেই');
     setMsg('');
     const { error } = await supabase.from('rolls')
       .insert({ room_id: room.id, activity_id: a.id, activity2_id: b?.id ?? null, rolled_by: user.id });
-    if (error) setMsg(error.message);
+    if (error) return setMsg(error.message);
+    notifyPartner('roll');
   };
   const stop = async () => {
     await supabase.from('rolls').insert({ room_id: room.id, rolled_by: user.id, stopped: true });
+    notifyPartner('stop');
   };
   const castVote = async (v) => {
     setMyVote(v);
@@ -319,6 +515,32 @@ export default function Home() {
   };
   const delWish = async (id) => { await supabase.from('wishes').delete().eq('id', id); loadWishes(); };
 
+  const sendMsg = async (text) => {
+    const body = (text ?? chatText).trim();
+    if (!body || !room) return;
+    const { data, error } = await supabase.from('messages')
+      .insert({ room_id: room.id, user_id: user.id, body }).select().single();
+    if (error) return setMsg(error.message);
+    setMsgs((prev) => (prev.some((x) => x.id === data.id) ? prev : [...prev, data]));
+    setChatText('');
+    notifyPartner('msg');
+  };
+
+  const wipeRoom = async () => {
+    if (!window.confirm('রুমের সব ইতিহাস, চ্যাট, ভোট ও গোপন ইচ্ছা দুজনের জন্যই মুছে যাবে। আর ফেরানো যাবে না। মুছবেন?')) return;
+    const { error } = await supabase.rpc('clear_room_data', { rid: room.id, also_favs: false });
+    if (error) return setMsg(error.message);
+    setCur(null); setHistory([]); setWishes([]); setMatches([]); setMsgs([]); setUnread(0);
+    setMsg('✅ রুমের সব ডেটা মুছে ফেলা হয়েছে');
+  };
+  const wipeFavs = async () => {
+    if (!window.confirm('আপনার পছন্দের তালিকা মুছে ফেলবেন?')) return;
+    const { error } = await supabase.from('favorites').delete().eq('user_id', user.id);
+    if (error) return setMsg(error.message);
+    setFavs([]);
+    setMsg('✅ পছন্দের তালিকা মুছে ফেলা হয়েছে');
+  };
+
   const mm = String(Math.floor(secs / 60)).padStart(2, '0');
   const ss = String(secs % 60).padStart(2, '0');
   const bothVoted = result && result.total >= 2;
@@ -329,6 +551,16 @@ export default function Home() {
   const showCur = cur && (cur.stopped || tabOfAct(cur.a) === tab);
   const showRolling = rolling && rollTab === tab;
   const inRoom = user && adult && room;
+  const lastTheirs = [...msgs].reverse().find((m) => m.user_id !== user?.id);
+
+  const StatusBar = () => (
+    <div className="status">
+      <span className="badge"><span className={'dotp' + (online ? ' on' : '')} />{online ? 'পার্টনার অনলাইন' : 'পার্টনার অফলাইন'}</span>
+      {room?.partner2_id && (
+        <span className={'badge turn' + (myTurn ? '' : ' wait')}>{myTurn ? '🎯 এখন আপনার পালা' : '⏳ এখন পার্টনারের পালা'}</span>
+      )}
+    </div>
+  );
 
   return (
     <div className="app" style={{ '--accent': accent }}>
@@ -415,6 +647,7 @@ export default function Home() {
                 <p className="welcome">
                   {room.partner2_id ? '💞 দুজনেই এসেছেন, শুরু করুন!' : '⏳ পার্টনার আসার অপেক্ষায়...'}
                 </p>
+                <StatusBar />
                 <div>
                   <span className="badge">{LEVELS[eff]}</span>
                   <span className="badge">আজকের মুড: {MOODS[mood]}</span>
@@ -424,6 +657,10 @@ export default function Home() {
                     <button key={k} className={'pill' + (mood === k ? ' on' : '')} onClick={() => setMood(k)}>{l}</button>
                   ))}
                 </div>
+
+                {unread > 0 && lastTheirs && (
+                  <div className="notice" onClick={() => setTab('chat')}>💌 পার্টনার: {lastTheirs.body}</div>
+                )}
 
                 <div className="h3">🎮 গেম বেছে নিন</div>
                 <div className="grid">
@@ -445,7 +682,38 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+                <div className="row2">
+                  <button className="mini" style={{ '--c': T.chat.color }} onClick={() => setTab('chat')}>
+                    {T.chat.icon} রুম চ্যাট{unread > 0 ? ` (${unread})` : ''}
+                  </button>
+                  <button className="mini" style={{ '--c': '#ff3d7f' }} onClick={handOver} disabled={!partnerId || !myTurn}>
+                    🔁 পালা দিন
+                  </button>
+                </div>
                 <p className="muted">🛡️ ⛔ থামুন বাটন সব গেমেই আছে। কেউ অস্বস্তি বোধ করলে সাথে সাথে থামান। 💗</p>
+
+                <div className="glass setbox">
+                  <div className="h3" style={{ marginTop: 0 }}>📲 অ্যাপ ও নোটিফিকেশন</div>
+                  {!standalone && installEvt && (
+                    <div><button className="btn" onClick={installApp}>📲 ফোনে অ্যাপ হিসেবে ইন্সটল করুন</button></div>
+                  )}
+                  {!standalone && !installEvt && isIOS && (
+                    <p className="muted">আইফোনে: Safari-তে Share বাটন চাপুন, তারপর “Add to Home Screen”। নোটিফিকেশনের জন্য এটা দরকার।</p>
+                  )}
+                  {standalone && <p className="muted">✅ অ্যাপ হিসেবে চালু আছে</p>}
+                  {pushOk ? (
+                    pushOn ? (
+                      <div>
+                        <p className="muted">🔔 নোটিফিকেশন চালু আছে। পার্টনার রোল করলে বা মেসেজ দিলে জানাবে। লক স্ক্রিনে কোনো বিস্তারিত দেখানো হয় না।</p>
+                        <button className="btn ghost tiny" onClick={removePush}>🔕 বন্ধ করুন</button>
+                      </div>
+                    ) : (
+                      <button className="btn ghost" onClick={enablePush}>🔔 নোটিফিকেশন চালু করুন</button>
+                    )
+                  ) : (
+                    <p className="muted">এই ব্রাউজারে নোটিফিকেশন সাপোর্ট নেই। (আইফোনে আগে হোম স্ক্রিনে যোগ করুন)</p>
+                  )}
+                </div>
               </>
             )}
 
@@ -458,6 +726,11 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="muted" style={{ margin: 0 }}>{T[tab].desc}</p>
+                <StatusBar />
+
+                {unread > 0 && lastTheirs && (
+                  <div className="notice" onClick={() => setTab('chat')}>💌 পার্টনার: {lastTheirs.body}</div>
+                )}
 
                 <div className="glass" style={{ padding: 12 }}>
                   <div className="muted">আমি রাজি আছি</div>
@@ -495,6 +768,7 @@ export default function Home() {
                       {cur.a?.image_url && <img src={cur.a.image_url} alt="" />}
                       {cur.a?.title}
                       {cur.b && <div className="mod">{cur.b.title}</div>}
+                      {cur.by && <div className="muted" style={{ marginTop: 6 }}>{cur.by === user.id ? 'আপনি ফেলেছেন' : 'পার্টনার ফেলেছে'}</div>}
                       <div style={{ marginTop: 10 }}>
                         <button className="btn ghost tiny" onClick={() => toggleFav(cur.a)}>
                           {favs.some((f) => f.activity_id === cur.a?.id) ? '⭐ সেভ করা' : '☆ সেভ করুন'}
@@ -524,9 +798,49 @@ export default function Home() {
                 )}
 
                 <div style={{ marginTop: 10 }}>
-                  <button className="btn big" onClick={roll} disabled={rolling}>{rolling ? '...' : T[tab].btn}</button>
-                  {showCur && !cur.stopped && !rolling && <button className="btn ghost" onClick={roll}>পাস করুন</button>}
+                  <button className="btn big" onClick={roll} disabled={rolling || !myTurn}>{rolling ? '...' : T[tab].btn}</button>
+                  {showCur && !cur.stopped && !rolling && <button className="btn ghost" onClick={roll} disabled={!myTurn}>পাস করুন</button>}
                   <button className="btn stop" onClick={stop}>⛔ থামুন</button>
+                </div>
+                {!myTurn && <p className="muted">⏳ পার্টনার রোল করলে এখানে সাথে সাথে দেখা যাবে। আপনার পালা এলে নোটিফিকেশন পাবেন।</p>}
+
+                <div className="quick">
+                  <div className="muted">⚡ দ্রুত মেসেজ</div>
+                  {QUICK_MSGS.map((q) => (
+                    <button key={q} className="pill" onClick={() => sendMsg(q)}>{q}</button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {tab === 'chat' && (
+              <>
+                <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>🗨️ রুম চ্যাট</h2>
+                <StatusBar />
+                <div className="glass chatbox" ref={chatBoxRef}>
+                  {msgs.length === 0 && <p className="muted" style={{ textAlign: 'center' }}>এখনো কোনো মেসেজ নেই। প্রথম মেসেজটা আপনি দিন 💌</p>}
+                  {msgs.map((m) => (
+                    <div key={m.id} className={'bub ' + (m.user_id === user.id ? 'me' : 'th')}>
+                      {m.body}
+                      <small>{new Date(m.created_at).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}</small>
+                    </div>
+                  ))}
+                </div>
+                <div className="quick">
+                  {QUICK_MSGS.map((q) => (
+                    <button key={q} className="pill" onClick={() => sendMsg(q)}>{q}</button>
+                  ))}
+                </div>
+                <div className="sendrow">
+                  <input
+                    className="inp"
+                    placeholder="মেসেজ লিখুন..."
+                    value={chatText}
+                    maxLength={1000}
+                    onChange={(e) => setChatText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') sendMsg(); }}
+                  />
+                  <button className="btn" onClick={() => sendMsg()}>পাঠান</button>
                 </div>
               </>
             )}
@@ -570,6 +884,13 @@ export default function Home() {
                     <br /><small className="muted">{new Date(h.created_at).toLocaleString('bn-BD')}</small>
                   </div>
                 ))}
+
+                <div className="glass setbox">
+                  <div className="h3" style={{ marginTop: 0 }}>🗑️ ডেটা মুছুন</div>
+                  <p className="muted">রুমের ইতিহাস, চ্যাট, ভোট ও গোপন ইচ্ছা দুজনের জন্যই মুছে যাবে। আর ফেরানো যাবে না।</p>
+                  <button className="btn stop tiny" onClick={wipeRoom}>🗑️ রুমের সব ডেটা মুছুন</button>
+                  <button className="btn ghost tiny" onClick={wipeFavs}>⭐ আমার পছন্দ মুছুন</button>
+                </div>
               </>
             )}
           </>
@@ -583,7 +904,7 @@ export default function Home() {
         <nav className="tabs">
           {Object.entries(T).map(([k, v]) => (
             <button key={k} className={tab === k ? 'on' : ''} style={{ '--nc': v.color }} onClick={() => setTab(k)}>
-              <span>{v.icon}</span>{v.label}<i />
+              <span>{v.icon}</span>{v.label}{k === 'chat' && unread > 0 ? <b className="dot">{unread}</b> : <i />}
             </button>
           ))}
         </nav>
