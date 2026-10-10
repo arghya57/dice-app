@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 
 const MOODS = { any: '🎲 যেকোনো', romantic: '💕 রোমান্টিক', naughty: '😏 দুষ্টু', tired: '😴 ক্লান্ত' };
 const LEVELS = { 1: '🌸 লেভেল ১ · হালকা', 2: '💋 লেভেল ২ · রোমান্টিক', 3: '🔥 লেভেল ৩ · ইন্টিমেট' };
-const LEVEL_ICON = { 1: '😘', 2: '💋', 3: '🍌' };
+const LEVEL_ICON = { 1: '🌸', 2: '💋', 3: '🔥' };
 
 const T = {
   home:    { icon: '🏠', label: 'হোম',    color: '#ff3d7f', title: 'হোম', desc: '', hero: '', btn: '', stk: [] },
@@ -26,15 +26,18 @@ const FLOATERS = [
   ['💋', '6%', '12%', '0s'], ['🔥', '82%', '8%', '2s'], ['😈', '12%', '48%', '4s'], ['🌹', '88%', '42%', '1s'],
   ['🍷', '8%', '78%', '3s'], ['🥵', '78%', '74%', '5s'], ['🍑', '46%', '90%', '2.5s'], ['💞', '50%', '4%', '6s'],
   ['😘', '30%', '30%', '7s'], ['🫦', '65%', '60%', '3.5s'], ['💦', '20%', '65%', '8s'], ['🖤', '92%', '85%', '1.5s'],
+  ['💏', '14%', '20%', '1s'], ['👩‍❤️‍💋‍👨', '70%', '18%', '3s'], ['💑', '40%', '55%', '5s'],
+  ['😘', '85%', '60%', '2s'], ['🫂', '25%', '85%', '4s'], ['💏', '60%', '82%', '6s'],
+  ['👩‍❤️‍💋‍👨', '5%', '55%', '7s'], ['💋', '92%', '25%', '0.5s'],
 ];
-const HERO_STICKERS = [['💋', -12], ['😍', 8], ['🔥', -6], ['🫦', 12], ['😈', -10], ['💞', 6]];
+const HERO_STICKERS = [['💏', -12], ['😍', 8], ['👩‍❤️‍💋‍👨', -6], ['🫦', 12], ['💑', -10], ['😈', 6], ['💋', -8], ['🔥', 10]];
 
 const tabOfAct = (a) => (a?.kind === 'card' ? 'card' : a?.kind === 'truth' ? 'truth' : a?.kind === 'dare' ? 'dare' : 'dice');
 
 const CSS = `
 .app{position:relative;min-height:100vh;padding:128px 46px 50px;max-width:460px;margin:0 auto;text-align:center;overflow-x:hidden;font-family:'Hind Siliguri',sans-serif}
 .bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 18% 8%,#4d0b30 0,transparent 46%),radial-gradient(circle at 88% 30%,#3a0a48 0,transparent 42%),radial-gradient(circle at 50% 105%,#5e0f20 0,transparent 52%),#0b0210}
-.float{position:fixed;font-size:28px;opacity:.14;animation:drift 14s ease-in-out infinite;pointer-events:none;z-index:0}
+.float{position:fixed;font-size:28px;opacity:.24;animation:drift 14s ease-in-out infinite;pointer-events:none;z-index:0}
 .z{position:relative;z-index:1}
 .logo{font-size:36px;font-weight:700;margin:6px 0 0;background:linear-gradient(90deg,#ffa6c9,#ff3d7f,#ffb347);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(255,61,127,.35)}
 .sub{font-size:12px;letter-spacing:.16em;color:#e0a9c2;margin:0 0 10px}
@@ -82,10 +85,6 @@ const CSS = `
 .tabs button span{display:block;font-size:32px;line-height:1.1;filter:drop-shadow(0 0 8px var(--nc))}
 .tabs button.on{background:linear-gradient(160deg,var(--nc),#5a1450);color:#fff;transform:translateY(2px) scale(1.06);box-shadow:0 0 22px -2px var(--nc)}
 .tabs button i{display:none}
-@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(720deg)}}
-@keyframes shuf{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(-40px) rotate(-12deg)}50%{transform:translateX(40px) rotate(12deg)}75%{transform:translateX(-25px) rotate(-6deg)}100%{transform:translateX(0) rotate(0)}}
-@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
-@keyframes drift{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-28px) rotate(10deg)}}
 .side{position:fixed;top:130px;bottom:50px;width:44px;z-index:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-around;align-items:center;font-size:30px;opacity:.75}
 .side.l{left:2px}.side.r{right:2px}
 .side span{display:block;animation:sway 3s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(255,150,200,.6))}
@@ -97,6 +96,10 @@ const CSS = `
 @keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(-4px)}}
 @keyframes dance{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-12px) rotate(10deg)}}
 @keyframes wave{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(720deg)}}
+@keyframes shuf{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(-40px) rotate(-12deg)}50%{transform:translateX(40px) rotate(12deg)}75%{transform:translateX(-25px) rotate(-6deg)}100%{transform:translateX(0) rotate(0)}}
+@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
+@keyframes drift{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-28px) rotate(10deg)}}
 @keyframes pop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes wob{0%,100%{transform:rotate(var(--r,0deg)) scale(1)}50%{transform:rotate(calc(var(--r,0deg) * -1)) scale(1.08)}}
 `;
@@ -334,6 +337,17 @@ export default function Home() {
       {FLOATERS.map(([e, x, y, d], i) => (
         <span key={i} className="float" style={{ left: x, top: y, animationDelay: d }}>{e}</span>
       ))}
+      <div className="side l">
+        {['🌴', '💃', '👙', '🍹', '🏖️'].map((e, i) => (
+          <span key={i} className={e === '💃' ? 'dn' : ''} style={{ animationDelay: i * 0.4 + 's' }}>{e}</span>
+        ))}
+      </div>
+      <div className="side r">
+        {['🕶️', '🕺', '🩳', '🩱', '🌴'].map((e, i) => (
+          <span key={i} className={e === '🕺' ? 'dn' : ''} style={{ animationDelay: i * 0.5 + 's' }}>{e}</span>
+        ))}
+      </div>
+      <div className="waves"><div>{'🌊'.repeat(60)}</div></div>
 
       <div className="z">
         <h1 className="logo">💋 Dice App</h1>
@@ -392,6 +406,11 @@ export default function Home() {
                   {HERO_STICKERS.map(([e, r], i) => (
                     <span key={i} className="sticker" style={{ '--r': r + 'deg', animationDelay: i * 0.3 + 's' }}>{e}</span>
                   ))}
+                </div>
+                <div className="beach">
+                  <span>🕺</span><span style={{ animationDelay: '.2s' }}>🌴</span>
+                  <span style={{ animationDelay: '.4s' }}>💞</span>
+                  <span style={{ animationDelay: '.6s' }}>🏖️</span><span style={{ animationDelay: '.8s' }}>💃</span>
                 </div>
                 <p className="welcome">
                   {room.partner2_id ? '💞 দুজনেই এসেছেন, শুরু করুন!' : '⏳ পার্টনার আসার অপেক্ষায়...'}
@@ -561,7 +580,7 @@ export default function Home() {
       </div>
 
       {inRoom && (
-        <nav className="nav">
+        <nav className="tabs">
           {Object.entries(T).map(([k, v]) => (
             <button key={k} className={tab === k ? 'on' : ''} style={{ '--nc': v.color }} onClick={() => setTab(k)}>
               <span>{v.icon}</span>{v.label}<i />
