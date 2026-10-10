@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 
 const MOODS = { any: '🎲 যেকোনো', romantic: '💕 রোমান্টিক', naughty: '😏 দুষ্টু', tired: '😴 ক্লান্ত' };
 const LEVELS = { 1: '🌸 লেভেল ১ · হালকা', 2: '💋 লেভেল ২ · রোমান্টিক', 3: '🔥 লেভেল ৩ · ইন্টিমেট' };
-const LEVEL_ICON = { 1: '🌸', 2: '💋', 3: '🔥' };
+const LEVEL_ICON = { 1: '😘', 2: '💋', 3: '🍌' };
 
 const T = {
   home:    { icon: '🏠', label: 'হোম',    color: '#ff3d7f', title: 'হোম', desc: '', hero: '', btn: '', stk: [] },
@@ -76,12 +76,12 @@ const CSS = `
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2px 0 10px}
 .mini{padding:12px 8px;border-radius:18px;border:1px solid var(--c);background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:15px;cursor:pointer}
 .badge{display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.18);font-size:12px;margin:3px}
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:0;padding:8px 2px calc(8px + env(safe-area-inset-bottom));background:rgba(12,2,16,.88);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.1)}
-.nav button{flex:1;max-width:62px;background:none;border:none;color:#b995a8;font-family:inherit;font-size:10px;padding:4px 0;cursor:pointer}
-.nav button span{display:block;font-size:22px;filter:grayscale(.7);transition:all .2s}
-.nav button.on{color:#fff}
-.nav button.on span{filter:none;transform:translateY(-3px) scale(1.18)}
-.nav button.on i{display:block;width:18px;height:3px;border-radius:3px;margin:3px auto 0;background:var(--nc)}
+.tabs{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;gap:8px;overflow-x:auto;padding:calc(10px + env(safe-area-inset-top)) 10px 10px;background:linear-gradient(180deg,rgba(40,4,30,.96),rgba(12,2,16,.88));-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.14);box-shadow:0 8px 30px rgba(0,0,0,.5);scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;min-width:76px;padding:8px 6px 7px;border-radius:20px;border:1.5px solid var(--nc);background:rgba(255,255,255,.07);color:#f3d3e1;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.tabs button span{display:block;font-size:32px;line-height:1.1;filter:drop-shadow(0 0 8px var(--nc))}
+.tabs button.on{background:linear-gradient(160deg,var(--nc),#5a1450);color:#fff;transform:translateY(2px) scale(1.06);box-shadow:0 0 22px -2px var(--nc)}
+.tabs button i{display:none}
 @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(720deg)}}
 @keyframes shuf{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(-40px) rotate(-12deg)}50%{transform:translateX(40px) rotate(12deg)}75%{transform:translateX(-25px) rotate(-6deg)}100%{transform:translateX(0) rotate(0)}}
 @keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
