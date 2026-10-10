@@ -3,8 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const MOODS = { any: '🎲 যেকোনো', romantic: '💕 রোমান্টিক', naughty: '😏 দুষ্টু', tired: '😴 ক্লান্ত' };
-const LEVELS = { 1: '🌸 লেভেল ১ · হালকা', 2: '💋 লেভেল ২ · রোমান্টিক', 3: '🔥 লেভেল ৩ · ইন্টিমেট' };
-const LEVEL_ICON = { 1: '🌸', 2: '💋', 3: '🔥' };
+// ডিফল্ট লেভেল নাম (অ্যাডমিন প্যানেল থেকে বদলানো যায়, না বদলালে এগুলো দেখাবে)
+const DEF_LEVELS = {
+  1: { name: 'লেভেল ১ · হালকা', icon: '🌸' },
+  2: { name: 'লেভেল ২ · রোমান্টিক', icon: '💋' },
+  3: { name: 'লেভেল ৩ · ইন্টিমেট', icon: '🔥' },
+};
+const GENDERS = { male: '♂️ পুরুষ', female: '♀️ নারী' };
 
 const T = {
   home:    { icon: '🏠', label: 'হোম',    color: '#ff3d7f', title: 'হোম', desc: '', hero: '', btn: '', stk: [] },
@@ -63,6 +68,14 @@ const CSS = `
 .pill.on{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 0 16px var(--accent)}
 .hero{font-size:86px;margin:8px 0 4px;filter:drop-shadow(0 0 24px var(--accent))}
 .spin{animation:spin 1.2s ease-out}
+.loop{animation:spin .8s linear infinite}
+.go{background:linear-gradient(135deg,#1fb85a,#0b6b32)}
+.who{font-size:15px;color:#ffd9a0;margin:2px 0 10px}
+.dbox{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0}
+.dbox.one{grid-template-columns:1fr}
+.dbox .b{padding:16px 8px 18px;border-radius:18px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.38);font-size:19px;line-height:1.4;box-shadow:0 0 18px -8px var(--accent)}
+.dbox .b small{display:block;font-size:11px;color:#d9b4c6;margin-bottom:6px}
+.lvbadge{display:inline-block;padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid var(--accent);font-size:13px;margin-bottom:8px}
 .fan{height:152px;margin:10px 0}
 .fan .c{display:inline-block;width:92px;height:134px;margin:0 -18px;border-radius:14px;background:linear-gradient(160deg,#2c0a1e,#0e0212);border:2px solid var(--accent);font-size:38px;line-height:130px;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 18px -6px var(--accent)}
 .res{padding:18px;border-radius:24px;background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.03));border:1.5px solid var(--accent);box-shadow:0 0 30px rgba(0,0,0,.4),0 0 26px -6px var(--accent);font-size:21px;line-height:1.55;margin:12px 0}
@@ -163,6 +176,9 @@ export default function Home() {
   const [installEvt, setInstallEvt] = useState(null);
   const [isIOS, setIsIOS] = useState(false);
   const [standalone, setStandalone] = useState(false);
+  const [levels, setLevels] = useState(DEF_LEVELS);
+  const [gender, setGender] = useState('');
+  const [spinning, setSpinning] = useState(false);
   const seenRoll = useRef(null);
   const actsRef = useRef([]);
   actsRef.current = acts;
@@ -176,6 +192,10 @@ export default function Home() {
   const eff = room ? Math.min(room.p1_level, room.p2_level) : 1;
   const myLevel = room ? (isP1 ? room.p1_level : room.p2_level) : 1;
   const partnerId = room ? (isP1 ? room.partner2_id : room.partner1_id) : null;
+  const myGender = room ? (isP1 ? room.p1_gender : room.p2_gender) : null;
+  const partnerGender = room ? (isP1 ? room.p2_gender : room.p1_gender) : null;
+  const lv = (n) => levels[n] || DEF_LEVELS[n] || { name: 'লেভেল ' + n, icon: '✨' };
+  const lvLabel = (n) => `${lv(n).icon} ${lv(n).name}`;
   const partnerRef = useRef(null);
   partnerRef.current = partnerId;
   const myTurn = !room?.turn_user_id || room.turn_user_id === user?.id;
@@ -187,6 +207,16 @@ export default function Home() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    try {
+      const g = localStorage.getItem('dice_gender');
+      if (g === 'male' || g === 'female') setGender(g);
+    } catch (e) { /* চুপচাপ */ }
+  }, []);
+
+  // ট্যাব বদলালে ঘুরন্ত ডাইস থামে
+  useEffect(() => { setSpinning(false); }, [tab]);
 
   // PWA: manifest, আইকন, service worker, ইন্সটল প্রম্পট
   useEffect(() => {
@@ -231,6 +261,14 @@ export default function Home() {
       .or(`partner1_id.eq.${user.id},partner2_id.eq.${user.id}`)
       .order('id', { ascending: false }).limit(1)
       .then(({ data }) => setRoom(data?.[0] ?? null));
+    supabase.from('levels').select('*').order('id').then(({ data }) => {
+      if (!data?.length) return;
+      setLevels((prev) => {
+        const n = { ...prev };
+        data.forEach((r) => { n[r.id] = { name: r.name, icon: r.icon || prev[r.id]?.icon || '' }; });
+        return n;
+      });
+    });
     loadFavs();
     syncPush();
   }, [user]);
@@ -243,7 +281,7 @@ export default function Home() {
   const showRoll = (r) => {
     if (seenRoll.current !== null && r.id <= seenRoll.current) return;
     seenRoll.current = r.id;
-    setMyVote(null); setResult(null); setRunning(false);
+    setMyVote(null); setResult(null); setRunning(false); setSpinning(false);
     if (r.stopped) { setCur({ id: r.id, stopped: true }); return; }
     const list = actsRef.current;
     const a = list.find((x) => x.id === r.activity_id) || null;
@@ -448,16 +486,22 @@ export default function Home() {
     setAdult(true); setMsg('');
   };
 
+  const rememberGender = (g) => {
+    setGender(g);
+    try { localStorage.setItem('dice_gender', g); } catch (e) { /* চুপচাপ */ }
+  };
   const createRoom = async () => {
+    if (!gender) return setMsg('আগে আপনার লিঙ্গ বাছুন');
     const c = Math.random().toString(36).slice(2, 7).toUpperCase();
     const { data, error } = await supabase.from('rooms')
-      .insert({ code: c, partner1_id: user.id }).select().single();
+      .insert({ code: c, partner1_id: user.id, p1_gender: gender }).select().single();
     if (error) return setMsg(error.message);
     setRoom(data);
   };
   const joinRoom = async () => {
+    if (!gender) return setMsg('আগে আপনার লিঙ্গ বাছুন');
     const { data, error } = await supabase.from('rooms')
-      .update({ partner2_id: user.id })
+      .update({ partner2_id: user.id, p2_gender: gender })
       .eq('code', code.trim().toUpperCase()).is('partner2_id', null)
       .select().single();
     if (error || !data) return setMsg('রুম পাওয়া যায়নি বা ভরে গেছে');
@@ -468,23 +512,52 @@ export default function Home() {
     const { data } = await supabase.from('rooms').update({ [col]: n }).eq('id', room.id).select().single();
     if (data) setRoom(data);
   };
+  // রুমে ঢোকার পর (বা পুরোনো রুমে) নিজের লিঙ্গ সেট/বদলানো
+  const saveRoomGender = async (g) => {
+    if (!room) return rememberGender(g);
+    const col = isP1 ? 'p1_gender' : 'p2_gender';
+    const { data, error } = await supabase.from('rooms').update({ [col]: g }).eq('id', room.id).select().single();
+    if (error) return setMsg(error.message);
+    if (data) setRoom(data);
+    rememberGender(g);
+  };
   const handOver = async () => {
     if (!partnerId) return;
     const { data } = await supabase.from('rooms').update({ turn_user_id: partnerId }).eq('id', room.id).select().single();
     if (data) setRoom(data);
   };
 
-  const pick = (kind) => {
+  // g = যার লিঙ্গ অনুযায়ী অপশন বাছা হবে ('any' চিহ্নিত অপশন সবার জন্য)
+  const pick = (kind, g) => {
     const pool = acts.filter((a) => a.kind === kind && a.level <= eff &&
-      (mood === 'any' || a.mood === 'any' || a.mood === mood));
+      (mood === 'any' || a.mood === 'any' || a.mood === mood) &&
+      (!a.gender || a.gender === 'any' || a.gender === g));
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   };
-  const roll = async () => {
-    if (!room?.partner2_id) return setMsg('পার্টনার এখনো জয়েন করেনি');
-    if (!myTurn) return setMsg('এখন পার্টনারের পালা, একটু অপেক্ষা করুন 💞');
+  // ডাইসে: বক্স ১ (কী করবেন) = যে ফেলছে তার লিঙ্গ, বক্স ২ (কোথায়/কীভাবে) = পার্টনারের লিঙ্গ
+  const makePicks = () => {
+    if (!room?.partner2_id) return { err: 'পার্টনার এখনো জয়েন করেনি' };
+    if (!myTurn) return { err: 'এখন পার্টনারের পালা, একটু অপেক্ষা করুন 💞' };
+    if (!myGender) return { err: 'আগে আপনার লিঙ্গ বাছুন' };
     let a, b = null;
-    if (tab === 'dice') { a = pick('action'); b = pick('modifier'); } else a = pick(tab);
-    if (!a) return setMsg('এই লেভেল/মুডে কোনো অ্যাক্টিভিটি নেই');
+    if (tab === 'dice') {
+      if (!partnerGender) return { err: 'পার্টনার এখনো লিঙ্গ বাছেনি' };
+      a = pick('action', myGender);
+      b = pick('modifier', partnerGender);
+    } else a = pick(tab, myGender);
+    if (!a) return { err: 'এই লেভেল/মুডে কোনো অ্যাক্টিভিটি নেই' };
+    return { a, b };
+  };
+  const startSpin = () => {
+    const { err } = makePicks();
+    if (err) return setMsg(err);
+    setMsg('');
+    setSpinning(true);
+  };
+  const roll = async () => {
+    const { a, b, err } = makePicks();
+    setSpinning(false);
+    if (err) return setMsg(err);
     setMsg('');
     const { error } = await supabase.from('rolls')
       .insert({ room_id: room.id, activity_id: a.id, activity2_id: b?.id ?? null, rolled_by: user.id });
@@ -552,6 +625,14 @@ export default function Home() {
   const showRolling = rolling && rollTab === tab;
   const inRoom = user && adult && room;
   const lastTheirs = [...msgs].reverse().find((m) => m.user_id !== user?.id);
+  const resLevel = cur && !cur.stopped ? Math.max(cur.a?.level || 1, cur.b?.level || 1) : 1;
+  const GenderPills = ({ value, onPick }) => (
+    <div>
+      {Object.entries(GENDERS).map(([k, l]) => (
+        <button key={k} className={'pill' + (value === k ? ' on' : '')} onClick={() => onPick(k)}>{l}</button>
+      ))}
+    </div>
+  );
 
   const StatusBar = () => (
     <div className="status">
@@ -614,6 +695,8 @@ export default function Home() {
             <div className="stkrow">
               {[['🍷', -10], ['💞', 8], ['🌹', -6]].map(([e, r], i) => <span key={i} className="sticker" style={{ '--r': r + 'deg' }}>{e}</span>)}
             </div>
+            <div className="muted">আপনার লিঙ্গ বাছুন (ডাইসের অপশন মেলাতে লাগে)</div>
+            <GenderPills value={gender} onPick={rememberGender} />
             <button className="btn big" onClick={createRoom}>🌹 নতুন রুম বানান</button>
             <p className="muted">অথবা পার্টনারের রুম কোড দিয়ে জয়েন করুন</p>
             <input className="inp" placeholder="রুম কোড" value={code} onChange={(e) => setCode(e.target.value)} />
@@ -621,7 +704,16 @@ export default function Home() {
           </div>
         )}
 
-        {inRoom && (
+        {inRoom && !myGender && (
+          <div className="glass" style={{ animation: 'pop .4s ease-out' }}>
+            <div className="hero" style={{ fontSize: 56 }}>💞</div>
+            <p style={{ fontSize: 16 }}>শুরুর আগে আপনার লিঙ্গ বাছুন। ডাইসের অপশন এই অনুযায়ী আসবে।</p>
+            <GenderPills value={myGender} onPick={saveRoomGender} />
+            <div style={{ marginTop: 8 }}><button className="btn ghost tiny" onClick={leaveRoom}>← রুম বদলান</button></div>
+          </div>
+        )}
+
+        {inRoom && myGender && (
           <>
             <div style={{ margin: '4px 0 6px' }}>
               <span className="muted">রুম কোড</span><span className="code">{room.code}</span>
@@ -649,8 +741,12 @@ export default function Home() {
                 </p>
                 <StatusBar />
                 <div>
-                  <span className="badge">{LEVELS[eff]}</span>
+                  <span className="badge">{lvLabel(eff)}</span>
                   <span className="badge">আজকের মুড: {MOODS[mood]}</span>
+                </div>
+                <div style={{ margin: '6px 0' }}>
+                  <div className="muted">আমি</div>
+                  <GenderPills value={myGender} onPick={saveRoomGender} />
                 </div>
                 <div style={{ margin: '8px 0' }}>
                   {Object.entries(MOODS).map(([k, l]) => (
@@ -736,10 +832,10 @@ export default function Home() {
                   <div className="muted">আমি রাজি আছি</div>
                   {[1, 2, 3].map((n) => (
                     <button key={n} className={'pill' + (myLevel === n ? ' on' : '')} onClick={() => setLevel(n)}>
-                      {LEVEL_ICON[n]} {n}
+                      {lv(n).icon} {n}
                     </button>
                   ))}
-                  <div style={{ fontSize: 13, margin: '4px 0 8px' }}>দুজনের মিল: <b>{LEVELS[eff]}</b></div>
+                  <div style={{ fontSize: 13, margin: '4px 0 8px' }}>দুজনের মিল: <b>{lvLabel(eff)}</b></div>
                   <div>
                     {Object.entries(MOODS).map(([k, l]) => (
                       <button key={k} className={'pill' + (mood === k ? ' on' : '')} onClick={() => setMood(k)}>{l}</button>
@@ -757,18 +853,36 @@ export default function Home() {
                     ))}
                   </div>
                 ) : (
-                  <div className={'hero' + (showRolling ? ' spin' : '')}>{T[tab].hero}</div>
+                  <div className={'hero' + (tab === 'dice' && spinning ? ' loop' : showRolling ? ' spin' : '')}>{T[tab].hero}</div>
                 )}
+                {tab === 'dice' && spinning && <p className="muted">🎲 ডাইস ঘুরছে... ইচ্ছামতো সময়ে ✋ স্টপ চাপুন</p>}
 
                 {cur?.stopped && !rolling && <div className="stopbox">⛔ থামানো হয়েছে। কোনো সমস্যা নেই। 💗</div>}
 
                 {showCur && !cur.stopped && !rolling && (
                   <>
                     <div className="res" style={{ animation: tab === 'card' ? 'flip .6s ease-out' : 'pop .4s ease-out' }}>
+                      <div className="lvbadge">{lvLabel(resLevel)}</div>
                       {cur.a?.image_url && <img src={cur.a.image_url} alt="" />}
-                      {cur.a?.title}
-                      {cur.b && <div className="mod">{cur.b.title}</div>}
-                      {cur.by && <div className="muted" style={{ marginTop: 6 }}>{cur.by === user.id ? 'আপনি ফেলেছেন' : 'পার্টনার ফেলেছে'}</div>}
+                      {tab === 'dice' ? (
+                        <>
+                          {cur.by && (
+                            <div className="who">
+                              {cur.by === user.id ? '🎯 আপনি পার্টনারের সাথে এটা করুন' : '🎯 পার্টনার আপনার সাথে এটা করবে'}
+                            </div>
+                          )}
+                          <div className={'dbox' + (cur.b ? '' : ' one')}>
+                            <div className="b"><small>কী করবেন</small>{cur.a?.title}</div>
+                            {cur.b && <div className="b"><small>কোথায়/কীভাবে</small>{cur.b.title}</div>}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {cur.a?.title}
+                          {cur.b && <div className="mod">{cur.b.title}</div>}
+                        </>
+                      )}
+                      {tab !== 'dice' && cur.by &&<div className="muted" style={{ marginTop: 6 }}>{cur.by === user.id ? 'আপনি ফেলেছেন' : 'পার্টনার ফেলেছে'}</div>}
                       <div style={{ marginTop: 10 }}>
                         <button className="btn ghost tiny" onClick={() => toggleFav(cur.a)}>
                           {favs.some((f) => f.activity_id === cur.a?.id) ? '⭐ সেভ করা' : '☆ সেভ করুন'}
@@ -798,7 +912,13 @@ export default function Home() {
                 )}
 
                 <div style={{ marginTop: 10 }}>
-                  <button className="btn big" onClick={roll} disabled={rolling || !myTurn}>{rolling ? '...' : T[tab].btn}</button>
+                  {tab === 'dice' ? (
+                    spinning
+                      ? <button className="btn big go" onClick={roll}>✋ স্টপ</button>
+                      : <button className="btn big" onClick={startSpin} disabled={rolling || !myTurn}>{rolling ? '...' : T[tab].btn}</button>
+                  ) : (
+                    <button className="btn big" onClick={roll} disabled={rolling || !myTurn}>{rolling ? '...' : T[tab].btn}</button>
+                  )}
                   {showCur && !cur.stopped && !rolling && <button className="btn ghost" onClick={roll} disabled={!myTurn}>পাস করুন</button>}
                   <button className="btn stop" onClick={stop}>⛔ থামুন</button>
                 </div>
@@ -900,7 +1020,7 @@ export default function Home() {
         {user && <div style={{ marginTop: 16 }}><button className="btn ghost tiny" onClick={signOut}>লগআউট</button></div>}
       </div>
 
-      {inRoom && (
+      {inRoom && myGender && (
         <nav className="tabs">
           {Object.entries(T).map(([k, v]) => (
             <button key={k} className={tab === k ? 'on' : ''} style={{ '--nc': v.color }} onClick={() => setTab(k)}>
