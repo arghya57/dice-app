@@ -330,8 +330,11 @@ export default function Home() {
               {showCur && !cur.stopped && !rolling && (
                 <>
                   <div style={{ ...card, animation: isCardTab ? 'flip .6s ease-out' : 'none', border: isCardTab ? '2px solid #e94560' : 'none' }}>
+                    {cur.a?.image_url && (
+                      <img src={cur.a.image_url} alt="" style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />
+                    )}
                     {cur.a?.title}
-                    {cur.b && <div style={{ color: '#ffd369', marginTop: 8 }}>{cur.b.title}</div>}
+                    {cur.b &&<div style={{ color: '#ffd369', marginTop: 8 }}>{cur.b.title}</div>}
                     <div style={{ marginTop: 8 }}>
                       <button style={grey} onClick={() => toggleFav(cur.a)}>
                         {favs.some((f) => f.activity_id === cur.a?.id) ? '⭐ সেভ করা' : '☆ সেভ'}
