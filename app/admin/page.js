@@ -1,382 +1,136 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
-const MOODS = { any: '🎲 যেকোনো', romantic: '💕 রোমান্টিক', naughty: '😏 দুষ্টু', tired: '😴 ক্লান্ত' };
+const KINDS = { action: 'অ্যাকশন', modifier: 'মডিফায়ার (কোথায়/কীভাবে)', truth: 'ট্রুথ', dare: 'ডেয়ার', card: 'কার্ড' };
 const LEVELS = { 1: 'লেভেল ১ · হালকা', 2: 'লেভেল ২ · রোমান্টিক', 3: 'লেভেল ৩ · ইন্টিমেট' };
+const MOODS = { any: 'যেকোনো', romantic: 'রোমান্টিক', naughty: 'দুষ্টু', tired: 'ক্লান্ত' };
+const EMPTY = { title: '', kind: 'action', level: 1, mood: 'any', seconds: 0 };
 
-export default function Home() {
-  const [user, setUser] = useState(null);
-  const [adult, setAdult] = useState(null);
-  const [tick, setTick] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [room, setRoom] = useState(null);
-  const [code, setCode] = useState('');
-  const [acts, setActs] = useState([]);
-  const [cur, setCur] = useState(null);
-  const [rolling, setRolling] = useState(false);
-  const [rollCard, setRollCard] = useState(false);
+export default function Admin() {
+  const [ok, setOk] = useState(null);
+  const [list, setList] = useState([]);
+  const [form, setForm] = useState(EMPTY);
+  const [editId, setEditId] = useState(null);
+  const [filter, setFilter] = useState('all');
   const [msg, setMsg] = useState('');
-  const [tab, setTab] = useState('dice');
-  const [mode, setMode] = useState('dice');
-  const [mood, setMood] = useState('any');
-  const [myVote, setMyVote] = useState(null);
-  const [result, setResult] = useState(null);
-  const [secs, setSecs] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [wish, setWish] = useState('');
-  const [wishes, setWishes] = useState([]);
-  const [matches, setMatches] = useState([]);
-  const [favs, setFavs] = useState([]);
-  const [history, setHistory] = useState([]);
 
-  const isP1 = room && room.partner1_id === user?.id;
-  const eff = room ? Math.min(room.p1_level, room.p2_level) : 1;
-  const myLevel = room ? (isP1 ? room.p1_level : room.p2_level) : 1;
-  const isCardTab = tab === 'card';
-  const isGameTab = tab === 'dice' || tab === 'card';
+  const load = async () => {
+    const { data } = await supabase.from('activities').select('*').order('id');
+    setList(data || []);
+  };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
-    return () => sub.subscription.unsubscribe();
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const u = data.session?.user;
+      if (!u) return setOk(false);
+      const { data: p } = await supabase.from('profiles').select('role').eq('id', u.id).single();
+      if (p?.role === 'admin') { setOk(true); load(); } else setOk(false);
+    })();
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase.from('profiles').select('adult_ok').eq('id', user.id).single()
-      .then(({ data }) => setAdult(!!data?.adult_ok));
-    supabase.from('activities').select('*').eq('is_active', true)
-      .then(({ data }) => setActs(data || []));
-    supabase.from('rooms').select('*')
-      .or(`partner1_id.eq.${user.id},partner2_id.eq.${user.id}`)
-      .order('id', { ascending: false }).limit(1)
-      .then(({ data }) => setRoom(data?.[0] ?? null));
-    loadFavs();
-  }, [user]);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const loadFavs = async () => {
-    const { data } = await supabase.from('favorites').select('activity_id, activities(title)');
-    setFavs(data || []);
-  };
-
-  useEffect(() => {
-    if (!room || acts.length === 0) return;
-    const channel = supabase.channel('room-' + room.id)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'rolls', filter: `room_id=eq.${room.id}` },
-        (p) => {
-          const r = p.new;
-          setMyVote(null); setResult(null); setRunning(false);
-          if (r.stopped) { setCur({ id: r.id, stopped: true }); return; }
-          const a = acts.find((x) => x.id === r.activity_id) || null;
-          const b = acts.find((x) => x.id === r.activity2_id) || null;
-          setRollCard(a?.kind === 'card');
-          setRolling(true);
-          setTimeout(() => {
-            setCur({ id: r.id, a, b });
-            setSecs(a?.seconds || 0);
-            setRolling(false);
-          }, 1200);
-        })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [room?.id, acts]);
-
-  useEffect(() => {
-    if (!room) return;
-    const t = setInterval(async () => {
-      const { data } = await supabase.from('rooms').select('*').eq('id', room.id).single();
-      if (data) setRoom(data);
-      if (cur?.id && !cur.stopped) {
-        const { data: r } = await supabase.rpc('vote_result', { rid: cur.id });
-        if (r) setResult(r);
-      }
-      if (tab === 'wish') loadWishes();
-    }, 3000);
-    return () => clearInterval(t);
-  }, [room?.id, cur?.id, tab]);
-
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setSecs((s) => {
-      if (s <= 1) { setRunning(false); if (navigator.vibrate) navigator.vibrate(500); return 0; }
-      return s - 1;
-    }), 1000);
-    return () => clearInterval(t);
-  }, [running]);
-
-  const loadWishes = async () => {
-    if (!room) return;
-    const { data } = await supabase.from('wishes').select('*').eq('room_id', room.id).order('id');
-    setWishes(data || []);
-    const { data: m } = await supabase.rpc('matched_wishes', { rid: room.id });
-    setMatches(m || []);
-  };
-  const loadHistory = async () => {
-    const { data } = await supabase.from('rolls')
-      .select('id, created_at, stopped, a:activities!activity_id(title), b:activities!activity2_id(title)')
-      .eq('room_id', room.id).eq('stopped', false).order('id', { ascending: false }).limit(30);
-    setHistory(data || []);
-  };
-  useEffect(() => {
-    if (!room) return;
-    if (tab === 'wish') loadWishes();
-    if (tab === 'history') { loadHistory(); loadFavs(); }
-  }, [tab, room?.id]);
-
-  const signUp = async () => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    setMsg(error ? error.message : 'সাইন আপ হয়েছে');
-  };
-  const signIn = async () => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setMsg(error.message);
-  };
-  const signOut = () => { supabase.auth.signOut(); setRoom(null); setCur(null); setAdult(null); };
-  const confirmAdult = async () => {
-    if (!tick) return setMsg('বয়স ১৮+ কনফার্ম করতে টিক দিন');
-    await supabase.rpc('confirm_adult');
-    setAdult(true); setMsg('');
-  };
-
-  const createRoom = async () => {
-    const c = Math.random().toString(36).slice(2, 7).toUpperCase();
-    const { data, error } = await supabase.from('rooms')
-      .insert({ code: c, partner1_id: user.id }).select().single();
+  const save = async () => {
+    if (!form.title.trim()) return setMsg('নাম লিখুন');
+    const row = {
+      title: form.title.trim(),
+      kind: form.kind,
+      level: Number(form.level),
+      mood: form.mood,
+      seconds: Number(form.seconds) || 0,
+    };
+    const { error } = editId
+      ? await supabase.from('activities').update(row).eq('id', editId)
+      : await supabase.from('activities').insert(row);
     if (error) return setMsg(error.message);
-    setRoom(data);
-  };
-  const joinRoom = async () => {
-    const { data, error } = await supabase.from('rooms')
-      .update({ partner2_id: user.id })
-      .eq('code', code.trim().toUpperCase()).is('partner2_id', null)
-      .select().single();
-    if (error || !data) return setMsg('রুম পাওয়া যায়নি বা ভরে গেছে');
-    setRoom(data);
-  };
-  const setLevel = async (n) => {
-    const col = isP1 ? 'p1_level' : 'p2_level';
-    const { data } = await supabase.from('rooms').update({ [col]: n }).eq('id', room.id).select().single();
-    if (data) setRoom(data);
+    setMsg(editId ? 'আপডেট হয়েছে' : 'যোগ হয়েছে');
+    setForm(EMPTY); setEditId(null); load();
   };
 
-  const pick = (kind) => {
-    const pool = acts.filter((a) => a.kind === kind && a.level <= eff &&
-      (mood === 'any' || a.mood === 'any' || a.mood === mood));
-    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  const edit = (a) => {
+    setEditId(a.id);
+    setForm({ title: a.title, kind: a.kind, level: a.level, mood: a.mood, seconds: a.seconds });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const roll = async () => {
-    if (!room?.partner2_id) return setMsg('পার্টনার এখনো জয়েন করেনি');
-    const m = isCardTab ? 'card' : mode;
-    let a, b = null;
-    if (m === 'dice') { a = pick('action'); b = pick('modifier'); } else a = pick(m);
-    if (!a) return setMsg('এই লেভেল/মুডে কোনো অ্যাক্টিভিটি নেই');
-    setMsg('');
-    const { error } = await supabase.from('rolls')
-      .insert({ room_id: room.id, activity_id: a.id, activity2_id: b?.id ?? null, rolled_by: user.id });
-    if (error) setMsg(error.message);
-  };
-  const stop = async () => {
-    await supabase.from('rolls').insert({ room_id: room.id, rolled_by: user.id, stopped: true });
-  };
-  const castVote = async (v) => {
-    setMyVote(v);
-    await supabase.from('votes').insert({ roll_id: cur.id, user_id: user.id, vote: v });
-    const { data } = await supabase.rpc('vote_result', { rid: cur.id });
-    if (data) setResult(data);
-  };
-  const toggleFav = async (a) => {
-    if (!a) return;
-    if (favs.some((f) => f.activity_id === a.id))
-      await supabase.from('favorites').delete().eq('activity_id', a.id).eq('user_id', user.id);
-    else await supabase.from('favorites').insert({ activity_id: a.id, user_id: user.id });
-    loadFavs();
-  };
-  const addWish = async () => {
-    if (!wish.trim()) return;
-    await supabase.from('wishes').insert({ room_id: room.id, user_id: user.id, body: wish.trim() });
-    setWish(''); loadWishes();
-  };
-  const delWish = async (id) => { await supabase.from('wishes').delete().eq('id', id); loadWishes(); };
 
-  const box = { maxWidth: 440, margin: '0 auto', padding: 16, textAlign: 'center' };
+  const cancel = () => { setEditId(null); setForm(EMPTY); setMsg(''); };
+
+  const toggle = async (a) => {
+    await supabase.from('activities').update({ is_active: !a.is_active }).eq('id', a.id);
+    load();
+  };
+
+  const del = async (a) => {
+    if (!confirm('মুছবেন?')) return;
+    const { error } = await supabase.from('activities').delete().eq('id', a.id);
+    if (error) setMsg('মুছা যায়নি (আগে রোল হয়েছে)। বন্ধ করে রাখুন।');
+    load();
+  };
+
+  const box = { maxWidth: 480, margin: '0 auto', padding: 20 };
   const inp = { width: '100%', padding: 12, margin: '6px 0', borderRadius: 8, border: 'none', boxSizing: 'border-box', fontSize: 16 };
   const btn = { padding: '10px 16px', margin: 4, borderRadius: 8, border: 'none', background: '#e94560', color: '#fff', fontSize: 15 };
-  const grey = { ...btn, background: '#444' };
-  const card = { background: '#16213e', padding: 16, borderRadius: 12, margin: '10px 0', fontSize: 20 };
-  const chip = (on) => ({ ...btn, padding: '7px 12px', fontSize: 13, background: on ? '#e94560' : '#333' });
+  const chip = (on) => ({ ...btn, padding: '6px 12px', fontSize: 13, background: on ? '#e94560' : '#333' });
+  const lbl = { fontSize: 13, color: '#aaa', marginTop: 8, display: 'block' };
 
-  const mm = String(Math.floor(secs / 60)).padStart(2, '0');
-  const ss = String(secs % 60).padStart(2, '0');
-  const bothVoted = result && result.total >= 2;
-  const verdict = !bothVoted ? null
-    : result.no > 0 ? '😌 আজ না, অন্য কিছু বেছে নিন'
-    : result.yes === 2 ? '💖 দুজনেই হ্যাঁ!' : '🤔 দুজনেই রাজি, তবে ধীরে';
+  if (ok === null) return <div style={box}>লোড হচ্ছে...</div>;
+  if (!ok) return <div style={box}>শুধু অ্যাডমিন ঢুকতে পারবে। <a href="/" style={{ color: '#ffd369' }}>হোমে যান</a></div>;
 
-  // এই ট্যাবের জন্য ফলাফল দেখানো হবে কিনা
-  const showCur = cur && (cur.stopped || (cur.a?.kind === 'card') === isCardTab);
-  const showRolling = rolling && rollCard === isCardTab;
+  const shown = list.filter((a) => filter === 'all' || a.kind === filter);
 
   return (
     <div style={box}>
-      <style>{`@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(720deg)}}
-@keyframes shuf{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(-40px) rotate(-12deg)}50%{transform:translateX(40px) rotate(12deg)}75%{transform:translateX(-25px) rotate(-6deg)}100%{transform:translateX(0) rotate(0)}}
-@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}`}</style>
-      <h1>🎲 Dice App</h1>
+      <h2>⚙️ অ্যাডমিন প্যানেল</h2>
+      <a href="/" style={{ color: '#ffd369' }}>← হোম</a>
 
-      {!user && (
-        <>
-          <input style={inp} placeholder="ইমেইল" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input style={inp} type="password" placeholder="পাসওয়ার্ড (৬+ অক্ষর)" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button style={btn} onClick={signIn}>লগইন</button>
-          <button style={btn} onClick={signUp}>সাইন আপ</button>
-        </>
-      )}
+      <h3>{editId ? '✏️ এডিট করুন' : 'নতুন অ্যাক্টিভিটি'}</h3>
+      <input style={inp} placeholder="লেখা, যেমন: পিঠে ম্যাসাজ" value={form.title} onChange={(e) => set('title', e.target.value)} />
 
-      {user && adult === false && (
-        <div style={card}>
-          <p style={{ fontSize: 16 }}>এই অ্যাপ শুধু প্রাপ্তবয়স্ক দম্পতির জন্য। সব কিছু পারস্পরিক সম্মতিতে, যেকোনো সময় থামানো যাবে।</p>
-          <label style={{ fontSize: 16 }}>
-            <input type="checkbox" checked={tick} onChange={(e) => setTick(e.target.checked)} /> আমার বয়স ১৮+ এবং আমি রাজি
-          </label>
-          <div><button style={btn} onClick={confirmAdult}>চালিয়ে যান</button></div>
-        </div>
-      )}
+      <label style={lbl}>ধরন</label>
+      <select style={inp} value={form.kind} onChange={(e) => set('kind', e.target.value)}>
+        {Object.entries(KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
 
-      {user && adult && !room && (
-        <>
-          <button style={btn} onClick={createRoom}>নতুন রুম বানান</button>
-          <p>অথবা রুম কোড দিয়ে জয়েন করুন</p>
-          <input style={inp} placeholder="রুম কোড" value={code} onChange={(e) => setCode(e.target.value)} />
-          <button style={btn} onClick={joinRoom}>জয়েন</button>
-        </>
-      )}
+      <label style={lbl}>লেভেল</label>
+      <select style={inp} value={form.level} onChange={(e) => set('level', e.target.value)}>
+        {Object.entries(LEVELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
 
-      {user && adult && room && (
-        <>
-          <p>রুম কোড: <b style={{ fontSize: 22, letterSpacing: 3 }}>{room.code}</b>
-            {!room.partner2_id && <><br /><small>পার্টনারের জন্য অপেক্ষা...</small></>}</p>
+      <label style={lbl}>মুড</label>
+      <select style={inp} value={form.mood} onChange={(e) => set('mood', e.target.value)}>
+        {Object.entries(MOODS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
 
-          <div>
-            {[['dice', '🎲 ডাইস'], ['card', '🃏 কার্ড'], ['wish', '💭 উইশ'], ['history', '⭐ হিস্ট্রি']].map(([k, l]) =>
-              <button key={k} style={chip(tab === k)} onClick={() => setTab(k)}>{l}</button>)}
-          </div>
+      <label style={lbl}>টাইমার সেকেন্ড (০ = টাইমার নেই)</label>
+      <input style={inp} type="number" min="0" value={form.seconds} onChange={(e) => set('seconds', e.target.value)} />
 
-          {isGameTab && (
-            <>
-              <div style={{ fontSize: 13, margin: '8px 0' }}>
-                আমি রাজি: {[1, 2, 3].map((n) =>
-                  <button key={n} style={chip(myLevel === n)} onClick={() => setLevel(n)}>{n}</button>)}
-                <br />দুজনের মিল: <b>{LEVELS[eff]}</b>
-              </div>
-              <div>
-                {Object.entries(MOODS).map(([k, l]) =>
-                  <button key={k} style={chip(mood === k)} onClick={() => setMood(k)}>{l}</button>)}
-              </div>
-
-              {tab === 'dice' && (
-                <div>
-                  {[['dice', 'দুই ডাইস'], ['truth', 'ট্রুথ'], ['dare', 'ডেয়ার']].map(([k, l]) =>
-                    <button key={k} style={chip(mode === k)} onClick={() => setMode(k)}>{l}</button>)}
-                </div>
-              )}
-
-              {isCardTab ? (
-                <div style={{ height: 150, margin: '10px 0' }}>
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} style={{
-                      display: 'inline-block', width: 90, height: 130, margin: '0 -20px',
-                      borderRadius: 10, background: '#111', border: '2px solid #e94560',
-                      fontSize: 36, lineHeight: '130px',
-                      transform: `rotate(${(i - 1) * 10}deg)`,
-                      animation: showRolling ? `shuf 0.5s ${i * 0.1}s infinite` : 'none'
-                    }}>🃏</div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 80, animation: showRolling ? 'spin 1.2s ease-out' : 'none' }}>
-                  {mode === 'dice' ? '🎲🎲' : mode === 'truth' ? '💬' : '🔥'}
-                </div>
-              )}
-
-              {cur?.stopped && !rolling && <div style={{ ...card, background: '#5a1a1a' }}>⛔ থামানো হয়েছে। কোনো সমস্যা নেই।</div>}
-
-              {showCur && !cur.stopped && !rolling && (
-                <>
-                  <div style={{ ...card, animation: isCardTab ? 'flip .6s ease-out' : 'none', border: isCardTab ? '2px solid #e94560' : 'none' }}>
-                    {cur.a?.title}
-                    {cur.b && <div style={{ color: '#ffd369', marginTop: 8 }}>{cur.b.title}</div>}
-                    <div style={{ marginTop: 8 }}>
-                      <button style={grey} onClick={() => toggleFav(cur.a)}>
-                        {favs.some((f) => f.activity_id === cur.a?.id) ? '⭐ সেভ করা' : '☆ সেভ'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: 14 }}>গোপন ভোট (শুধু ফলাফল দেখা যাবে)</div>
-                  {!myVote ? (
-                    <div>
-                      <button style={btn} onClick={() => castVote('yes')}>✅ হ্যাঁ</button>
-                      <button style={grey} onClick={() => castVote('maybe')}>🤔 হয়তো</button>
-                      <button style={grey} onClick={() => castVote('no')}>❌ না</button>
-                    </div>
-                  ) : (
-                    <p>{verdict || 'ভোট দিয়েছেন, পার্টনারের অপেক্ষা...'}</p>
-                  )}
-
-                  <div style={{ margin: '10px 0' }}>
-                    <div style={{ fontSize: 40 }}>{mm}:{ss}</div>
-                    {[60, 180, 300].map((s) =>
-                      <button key={s} style={chip(false)} onClick={() => { setSecs(s); setRunning(true); }}>{s / 60} মিনিট</button>)}
-                    {secs > 0 && <button style={chip(false)} onClick={() => setRunning(!running)}>{running ? 'পজ' : 'শুরু'}</button>}
-                  </div>
-                </>
-              )}
-
-              <div>
-                <button style={btn} onClick={roll} disabled={rolling}>{isCardTab ? '🃏 কার্ড তুলুন' : 'রোল করুন'}</button>
-                {showCur && !cur.stopped && !rolling && <button style={grey} onClick={roll}>পাস করুন</button>}
-                <button style={{ ...btn, background: '#b00020' }} onClick={stop}>⛔ থামুন</button>
-              </div>
-            </>
-          )}
-
-          {tab === 'wish' && (
-            <>
-              <p style={{ fontSize: 14 }}>নিজের ইচ্ছা লিখুন। এগুলো পার্টনার দেখবে না। দুজনের একই ইচ্ছা মিললে শুধু তখনই নিচে দেখাবে।</p>
-              <input style={inp} placeholder="যেমন: একসাথে সিনেমা দেখা" value={wish} onChange={(e) => setWish(e.target.value)} />
-              <button style={btn} onClick={addWish}>যোগ করুন</button>
-              <h3>💞 দুজনের মিল</h3>
-              {matches.length === 0 ? <p style={{ fontSize: 14 }}>এখনো কিছু মেলেনি</p> :
-                matches.map((m) => <div key={m} style={card}>{m}</div>)}
-              <h3>আমার তালিকা</h3>
-              {wishes.filter((w) => w.user_id === user.id).map((w) => (
-                <div key={w.id} style={{ ...card, fontSize: 16 }}>
-                  {w.body} <button style={grey} onClick={() => delWish(w.id)}>মুছুন</button>
-                </div>))}
-            </>
-          )}
-
-          {tab === 'history' && (
-            <>
-              <h3>⭐ পছন্দের তালিকা</h3>
-              {favs.length === 0 && <p style={{ fontSize: 14 }}>এখনো কিছু সেভ করা নেই</p>}
-              {favs.map((f) => <div key={f.activity_id} style={{ ...card, fontSize: 16 }}>{f.activities?.title}</div>)}
-              <h3>🕘 সাম্প্রতিক রোল</h3>
-              {history.map((h) => (
-                <div key={h.id} style={{ ...card, fontSize: 15 }}>
-                  {h.a?.title}{h.b ? ' · ' + h.b.title : ''}
-                  <br /><small>{new Date(h.created_at).toLocaleString('bn-BD')}</small>
-                </div>))}
-            </>
-          )}
-        </>
-      )}
-
+      <button style={btn} onClick={save}>{editId ? 'সেভ করুন' : 'যোগ করুন'}</button>
+      {editId && <button style={{ ...btn, background: '#555' }} onClick={cancel}>বাতিল</button>}
       {msg && <p style={{ color: '#ffd369' }}>{msg}</p>}
-      {user && <button style={{ ...grey, fontSize: 13, background: '#333' }} onClick={signOut}>লগআউট</button>}
+
+      <h3>সব অ্যাক্টিভিটি ({shown.length})</h3>
+      <div>
+        <button style={chip(filter === 'all')} onClick={() => setFilter('all')}>সব</button>
+        {Object.entries(KINDS).map(([k, l]) =>
+          <button key={k} style={chip(filter === k)} onClick={() => setFilter(k)}>{l.split(' ')[0]}</button>)}
+      </div>
+
+      {shown.map((a) => (
+        <div key={a.id} style={{ background: '#16213e', padding: 12, borderRadius: 10, margin: '8px 0', opacity: a.is_active ? 1 : 0.5 }}>
+          <div style={{ fontSize: 18 }}>{a.title}</div>
+          <small>
+            {KINDS[a.kind]?.split(' ')[0]} · লেভেল {a.level} · {MOODS[a.mood]}
+            {a.seconds > 0 ? ` · ${a.seconds}সে` : ''} · {a.is_active ? 'চালু' : 'বন্ধ'}
+          </small>
+          <div>
+            <button style={{ ...btn, background: '#2a6f97' }} onClick={() => edit(a)}>এডিট</button>
+            <button style={{ ...btn, background: '#555' }} onClick={() => toggle(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+            <button style={{ ...btn, background: '#8b1e2d' }} onClick={() => del(a)}>মুছুন</button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
