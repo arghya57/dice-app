@@ -135,6 +135,7 @@ export default function Home() {
     if (error) setMsg(error.message);
   };
   const signOut = () => { supabase.auth.signOut(); setRoom(null); setCur(null); setAdult(null); };
+  const leaveRoom = () => { setRoom(null); setCur(null); };
   const confirmAdult = async () => {
     if (!tick) return setMsg('বয়স ১৮+ কনফার্ম করতে টিক দিন');
     await supabase.rpc('confirm_adult');
@@ -369,7 +370,6 @@ export default function Home() {
                 <div key={h.id} style={{ ...card, fontSize: 15 }}>
                   {h.a?.title}{h.b ? ' · ' + h.b.title : ''}
                   <br /><small>{new Date(h.created_at).toLocaleString('bn-BD')}</small>
-                  const leaveRoom = () => { setRoom(null); setCur(null); };
                 </div>))}
             </>
           )}
