@@ -10,6 +10,8 @@ const DEF_LEVELS = {
   3: { name: 'লেভেল ৩ · ইন্টিমেট', icon: '🔥' },
 };
 const GENDERS = { male: '♂️ পুরুষ', female: '♀️ নারী' };
+const RARITY = { 1: 'সাধারণ', 2: 'রেয়ার', 3: 'লেজেন্ডারি' };
+const SRC = { reward: '🏆 খেলার পুরস্কার', purchase: '💝 পার্টনারের উপহার', admin: '👑 অ্যাডমিন' };
 
 const T = {
   home:    { icon: '🏠', label: 'হোম',    color: '#ff3d7f', title: 'হোম', desc: '', hero: '', btn: '', stk: [] },
@@ -19,6 +21,7 @@ const T = {
   dare:    { icon: '🔥', label: 'ডেয়ার',   color: '#ff4d2e', title: 'ডেয়ার',     desc: 'সাহস আছে? পিছিয়ে যাবেন না 😈', hero: '🔥😈', btn: '🔥 ডেয়ার নিন', stk: ['😈', '🥵', '💥', '🍑'] },
   wish:    { icon: '💭', label: 'উইশ',    color: '#ff7eb6', title: 'গোপন ইচ্ছা', desc: '', hero: '', btn: '', stk: ['🤫', '💌', '🌙'] },
   history: { icon: '⭐', label: 'হিস্ট্রি', color: '#ffd369', title: 'পছন্দ ও ইতিহাস', desc: '', hero: '', btn: '', stk: ['⭐', '💝', '🕰️'] },
+  gifts:   { icon: '🎁', label: 'গিফট',   color: '#ff9f1c', title: 'গিফট ও কয়েন', desc: '', hero: '', btn: '', stk: ['🎁', '💝', '✨'] },
   chat:    { icon: '🗨️', label: 'চ্যাট',   color: '#5ec8ff', title: 'রুম চ্যাট', desc: '', hero: '', btn: '', stk: ['💌', '😘', '🫶'] },
 };
 const GAME_TABS = ['dice', 'card', 'truth', 'dare'];
@@ -132,6 +135,22 @@ const CSS = `
 .sendrow .btn{margin:0;flex:0 0 auto}
 .quick{margin:6px 0}
 .setbox{margin-top:14px}
+.coinbar{display:inline-block;padding:8px 18px;margin:8px 0;border-radius:999px;font-size:20px;font-weight:700;background:rgba(255,211,105,.14);border:1.5px solid #ffd369;box-shadow:0 0 18px -4px #ffd369}
+.ggrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.gwrap{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.gcx{position:relative;border-radius:18px;padding:10px 8px 12px;border:2px solid var(--rc);background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(0,0,0,.35));box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 18px -6px var(--rc);animation:pop .4s ease-out}
+.gcx.r1{--rc:#9fb3c8}
+.gcx.r2{--rc:#5ec8ff}
+.gcx.r3{--rc:#ffd369;animation:pop .4s ease-out,glow 2.4s ease-in-out infinite}
+.gcx.myst{--rc:#b266ff;border-style:dashed}
+.gcx .rt{font-size:11px;font-weight:700;color:var(--rc)}
+.gcx .gi{height:96px;display:flex;align-items:center;justify-content:center;font-size:58px;margin:4px 0}
+.gcx .gi img{width:100%;height:96px;object-fit:cover;border-radius:12px}
+.gcx .gn{font-size:15px;font-weight:700;line-height:1.3}
+.gcx .gp{font-size:12px;color:#e6c3d3;margin-top:2px}
+.gcx .gs{font-size:11px;color:#d9b4c6;margin-top:3px}
+.modal{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.75)}
+.mbox{width:100%;max-width:300px;padding:18px;border-radius:24px;background:#1b0a26;border:1.5px solid var(--accent);box-shadow:0 0 40px -6px var(--accent)}
 @keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(-4px)}}
 @keyframes dance{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-12px) rotate(10deg)}}
 @keyframes wave{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -141,6 +160,7 @@ const CSS = `
 @keyframes drift{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-28px) rotate(10deg)}}
 @keyframes pop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes wob{0%,100%{transform:rotate(var(--r,0deg)) scale(1)}50%{transform:rotate(calc(var(--r,0deg) * -1)) scale(1.08)}}
+@keyframes glow{0%,100%{box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 14px -6px #ffd369}50%{box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 30px 0 #ffd369}}
 `;
 
 export default function Home() {
@@ -179,6 +199,16 @@ export default function Home() {
   const [levels, setLevels] = useState(DEF_LEVELS);
   const [gender, setGender] = useState('');
   const [spinning, setSpinning] = useState(false);
+  // গিফট সিস্টেম
+  const [coins, setCoins] = useState(0);
+  const [catalog, setCatalog] = useState([]);
+  const [myGifts, setMyGifts] = useState([]);
+  const [gv, setGv] = useState('mine');
+  const [gbusy, setGbusy] = useState(false);
+  const [gnotice, setGnotice] = useState(null);
+  const [popup, setPopup] = useState(null);
+  const claimedRef = useRef(new Set());
+  const lastEvt = useRef(null);
   const seenRoll = useRef(null);
   const actsRef = useRef([]);
   actsRef.current = acts;
@@ -270,12 +300,99 @@ export default function Home() {
       });
     });
     loadFavs();
+    loadGifts();
     syncPush();
   }, [user]);
 
   const loadFavs = async () => {
     const { data } = await supabase.from('favorites').select('activity_id, activities(title)');
     setFavs(data || []);
+  };
+
+  // ---------- গিফট ----------
+  const gById = (id) => catalog.find((x) => x.id === id);
+
+  const loadGifts = async () => {
+    if (!user) return;
+    const { data: c } = await supabase.from('gifts').select('*').order('level').order('price');
+    setCatalog(c || []);
+    const { data: w } = await supabase.rpc('my_coins');
+    setCoins(typeof w === 'number' ? w : 0);
+    const { data: g } = await supabase.from('user_gifts').select('*')
+      .eq('owner_id', user.id).order('id', { ascending: false });
+    setMyGifts(g || []);
+  };
+
+  // পার্টনারের পাঠানো গিফট / বক্স খোলার নোটিস (পোলিং)
+  const checkGiftEvents = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('gift_events').select('*')
+      .eq('to_user', user.id).order('id', { ascending: false }).limit(5);
+    if (!data?.length) return;
+    if (lastEvt.current === null) { lastEvt.current = data[0].id; return; }
+    const fresh = data.filter((e) => e.id > lastEvt.current);
+    if (!fresh.length) return;
+    lastEvt.current = data[0].id;
+    setGnotice(fresh[0]);
+    loadGifts();
+    if (navigator.vibrate) navigator.vibrate(80);
+  };
+
+  const noticeText = (e) => {
+    const g = gById(e.gift_id);
+    const n = g ? `${g.emoji || '🎁'} ${g.name}` : 'একটি গিফট';
+    if (e.kind === 'received') return `🎁 পার্টনার আপনাকে পাঠিয়েছে: ${n}`;
+    if (e.kind === 'opened') return `🎉 পার্টনার মিস্ট্রি বক্স খুলেছে, ভেতরে ছিল: ${n}`;
+    return `👑 অ্যাডমিন থেকে উপহার: ${n}`;
+  };
+
+  // দুজনেই হ্যাঁ দিলে পুরস্কার
+  const claimReward = async (rid) => {
+    if (claimedRef.current.has(rid)) return;
+    claimedRef.current.add(rid);
+    const { data, error } = await supabase.rpc('claim_roll_reward', { p_roll: rid });
+    if (error || !data?.ok) { claimedRef.current.delete(rid); return; }
+    await loadGifts();
+    setPopup({
+      title: '💖 দুজনেই হ্যাঁ বলেছেন!',
+      gift: data.gift,
+      note: `+${data.coins} 🪙 কয়েন`,
+    });
+  };
+
+  const openBox = async (u) => {
+    setGbusy(true);
+    const { data, error } = await supabase.rpc('open_mystery', { p_ug: u.id });
+    setGbusy(false);
+    if (error) return setMsg(error.message);
+    await loadGifts();
+    setPopup({ title: '🎉 মিস্ট্রি বক্স খুলেছে!', gift: data.gift, note: 'পার্টনারও এটা জেনে গেছে 😉' });
+  };
+
+  const buyGift = async (g) => {
+    if (!window.confirm(`"${g.name}" পাঠাতে ${g.price} কয়েন লাগবে। পাঠাবেন?`)) return;
+    setGbusy(true);
+    const { data, error } = await supabase.rpc('send_gift', { p_room: room.id, p_gift: g.id });
+    setGbusy(false);
+    if (error) return setMsg(error.message);
+    setCoins(data.coins);
+    setMsg('🎁 গিফট পাঠানো হয়েছে');
+    loadGifts();
+  };
+
+  // গিফট কার্ড (ছবি না থাকলে ইমোজি)
+  const giftCard = (g, sub) => {
+    const mys = g.kind === 'mystery';
+    const lvl = mys ? 2 : g.level || 1;
+    return (
+      <div className={'gcx r' + lvl + (mys ? ' myst' : '')}>
+        <div className="rt">{mys ? '❓ রহস্য' : RARITY[lvl]}</div>
+        <div className="gi">{g.image_url ? <img src={g.image_url} alt="" /> : g.emoji || '🎁'}</div>
+        <div className="gn">{g.name}</div>
+        <div className="gp">{mys ? 'ভেতরে কী আছে? ???' : `⭐ ${g.points} পয়েন্ট`}</div>
+        {sub && <div className="gs">{sub}</div>}
+      </div>
+    );
   };
 
   const showRoll = (r) => {
@@ -360,8 +477,10 @@ export default function Home() {
       if (lr?.[0] && seenRoll.current !== null) showRoll(lr[0]);
       if (cur?.id && !cur.stopped) {
         const { data: r } = await supabase.rpc('vote_result', { rid: cur.id });
-        if (r) setResult(r);
+        if (r) { setResult(r); if (r.yes >= 2) claimReward(cur.id); }
       }
+      checkGiftEvents();
+      if (tab === 'gifts') loadGifts();
       if (tab === 'wish') loadWishes();
       if (tab === 'chat') loadMsgs();
     }, 3000);
@@ -400,6 +519,7 @@ export default function Home() {
     if (!room) return;
     if (tab === 'wish') loadWishes();
     if (tab === 'history') { loadHistory(); loadFavs(); }
+    if (tab === 'gifts') loadGifts();
   }, [tab, room?.id]);
 
   // পুশ নোটিফিকেশন
@@ -572,7 +692,7 @@ export default function Home() {
     setMyVote(v);
     await supabase.from('votes').insert({ roll_id: cur.id, user_id: user.id, vote: v });
     const { data } = await supabase.rpc('vote_result', { rid: cur.id });
-    if (data) setResult(data);
+    if (data) { setResult(data); if (data.yes >= 2) claimReward(cur.id); }
   };
   const toggleFav = async (a) => {
     if (!a) return;
@@ -724,6 +844,12 @@ export default function Home() {
               </div>
             </div>
 
+            {gnotice && (
+              <div className="notice" onClick={() => { setGnotice(null); setGv('mine'); setTab('gifts'); }}>
+                {noticeText(gnotice)}
+              </div>
+            )}
+
             {tab === 'home' && (
               <>
                 <div className="stkrow">
@@ -785,6 +911,10 @@ export default function Home() {
                   <button className="mini" style={{ '--c': '#ff3d7f' }} onClick={handOver} disabled={!partnerId || !myTurn}>
                     🔁 পালা দিন
                   </button>
+                </div>
+                <div className="row2">
+                  <button className="mini" style={{ '--c': T.gifts.color }} onClick={() => setTab('gifts')}>🎁 গিফট</button>
+                  <div className="mini" style={{ '--c': '#ffd369' }}>🪙 {coins} কয়েন</div>
                 </div>
                 <p className="muted">🛡️ ⛔ থামুন বাটন সব গেমেই আছে। কেউ অস্বস্তি বোধ করলে সাথে সাথে থামান। 💗</p>
 
@@ -890,7 +1020,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="muted">🙈 গোপন ভোট (শুধু ফলাফল দেখা যাবে)</div>
+                    <div className="muted">🙈 গোপন ভোট · দুজনেই হ্যাঁ দিলে 🎁 গিফট পাবেন</div>
                     {!myVote ? (
                       <div>
                         <button className="btn" onClick={() => castVote('yes')}>✅ হ্যাঁ</button>
@@ -988,6 +1118,64 @@ export default function Home() {
               </>
             )}
 
+            {tab === 'gifts' && (
+              <>
+                <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>🎁 গিফট ও কয়েন</h2>
+                <div className="stkrow">
+                  {T.gifts.stk.map((e, i) => <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26 }}>{e}</span>)}
+                </div>
+                <div className="coinbar">🪙 {coins}</div>
+                <p className="muted">দুজনেই "হ্যাঁ" দিলে একটি করে গিফট কার্ড ও কয়েন পাবেন। কয়েন দিয়ে পার্টনারকে গিফট দিতে পারবেন।</p>
+                <div>
+                  {[['mine', '🎴 আমার কালেকশন'], ['shop', '🛍️ গিফট শপ']].map(([k, l]) => (
+                    <button key={k} className={'pill' + (gv === k ? ' on' : '')} onClick={() => setGv(k)}>{l}</button>
+                  ))}
+                </div>
+
+                {gv === 'mine' && (
+                  myGifts.length === 0 ? (
+                    <p className="muted">এখনো কোনো গিফট নেই। খেলুন আর দুজনেই হ্যাঁ বলুন! 💞</p>
+                  ) : (
+                    <div className="ggrid">
+                      {myGifts.map((u) => {
+                        const box = gById(u.gift_id);
+                        if (!box) return null;
+                        const isBox = box.kind === 'mystery';
+                        const shown = isBox && u.opened ? gById(u.revealed_gift_id) : box;
+                        return (
+                          <div key={u.id} className="gwrap">
+                            {giftCard(shown || box, (SRC[u.source] || '') + (isBox && u.opened ? ' · 📦 খোলা' : ''))}
+                            {isBox && !u.opened && (
+                              <button className="btn tiny" disabled={gbusy} onClick={() => openBox(u)}>🎁 খুলুন</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                )}
+
+                {gv === 'shop' && (
+                  <>
+                    {!room.partner2_id && <p className="muted">⏳ পার্টনার জয়েন করলে গিফট পাঠাতে পারবেন</p>}
+                    {catalog.filter((g) => g.is_active && g.price > 0).length === 0 && (
+                      <p className="muted">শপে এখনো কোনো গিফট নেই</p>
+                    )}
+                    <div className="ggrid">
+                      {catalog.filter((g) => g.is_active && g.price > 0).map((g) => (
+                        <div key={g.id} className="gwrap">
+                          {giftCard(g, '🪙 ' + g.price)}
+                          <button className="btn tiny" disabled={gbusy || coins < g.price || !room.partner2_id} onClick={() => buyGift(g)}>
+                            💝 পার্টনারকে দিন
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
             {tab === 'history' && (
               <>
                 <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>⭐ পছন্দ ও ইতিহাস</h2>
@@ -1014,6 +1202,18 @@ export default function Home() {
               </>
             )}
           </>
+        )}
+
+        {popup && (
+          <div className="modal" onClick={() => setPopup(null)}>
+            <div className="mbox" onClick={(e) => e.stopPropagation()}>
+              <div className="h3" style={{ marginTop: 0 }}>{popup.title}</div>
+              {popup.gift && giftCard(popup.gift)}
+              {popup.note && <p style={{ fontSize: 17 }}>{popup.note}</p>}
+              <button className="btn" onClick={() => { setPopup(null); setGv('mine'); setTab('gifts'); }}>🎴 কালেকশন</button>
+              <button className="btn ghost" onClick={() => setPopup(null)}>ঠিক আছে</button>
+            </div>
+          </div>
         )}
 
         {msg && <p style={{ color: '#ffd369', fontSize: 15 }}>{msg}</p>}
