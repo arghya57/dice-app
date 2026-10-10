@@ -368,6 +368,7 @@ export default function Home() {
                 <div key={h.id} style={{ ...card, fontSize: 15 }}>
                   {h.a?.title}{h.b ? ' · ' + h.b.title : ''}
                   <br /><small>{new Date(h.created_at).toLocaleString('bn-BD')}</small>
+                  const leaveRoom = () => { setRoom(null); setCur(null); };
                 </div>))}
             </>
           )}
