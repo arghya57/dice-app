@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const MOODS = { any: '🎲 যেকোনো', romantic: '💕 রোমান্টিক', naughty: '😏 দুষ্টু', tired: '😴 ক্লান্ত' };
@@ -30,6 +30,9 @@ export default function Home() {
   const [matches, setMatches] = useState([]);
   const [favs, setFavs] = useState([]);
   const [history, setHistory] = useState([]);
+  const seenRoll = useRef(null);
+  const actsRef = useRef([]);
+  actsRef.current = acts;
 
   const isP1 = room && room.partner1_id === user?.id;
   const eff = room ? Math.min(room.p1_level, room.p2_level) : 1;
@@ -61,34 +64,54 @@ export default function Home() {
     setFavs(data || []);
   };
 
+  // নতুন রোল দেখানো: রিয়েলটাইম আর পোলিং দুই জায়গা থেকেই এটা ডাকা হয়, একই রোল দুইবার দেখাবে না
+  const showRoll = (r) => {
+    if (seenRoll.current !== null && r.id <= seenRoll.current) return;
+    seenRoll.current = r.id;
+    setMyVote(null); setResult(null); setRunning(false);
+    if (r.stopped) { setCur({ id: r.id, stopped: true }); return; }
+    const list = actsRef.current;
+    const a = list.find((x) => x.id === r.activity_id) || null;
+    const b = list.find((x) => x.id === r.activity2_id) || null;
+    setRollCard(a?.kind === 'card');
+    setRolling(true);
+    setTimeout(() => {
+      setCur({ id: r.id, a, b });
+      setSecs(a?.seconds || 0);
+      setRolling(false);
+    }, 1200);
+  };
+
+  // রুমে ঢোকার সময় আগের রোলগুলো "দেখা হয়ে গেছে" ধরা হয়
   useEffect(() => {
-    if (!room || acts.length === 0) return;
+    seenRoll.current = null;
+    if (!room) return;
+    (async () => {
+      const { data } = await supabase.from('rolls').select('id')
+        .eq('room_id', room.id).order('id', { ascending: false }).limit(1);
+      if (seenRoll.current === null) seenRoll.current = data?.[0]?.id ?? 0;
+    })();
+  }, [room?.id]);
+
+  useEffect(() => {
+    if (!room) return;
     const channel = supabase.channel('room-' + room.id)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'rolls', filter: `room_id=eq.${room.id}` },
-        (p) => {
-          const r = p.new;
-          setMyVote(null); setResult(null); setRunning(false);
-          if (r.stopped) { setCur({ id: r.id, stopped: true }); return; }
-          const a = acts.find((x) => x.id === r.activity_id) || null;
-          const b = acts.find((x) => x.id === r.activity2_id) || null;
-          setRollCard(a?.kind === 'card');
-          setRolling(true);
-          setTimeout(() => {
-            setCur({ id: r.id, a, b });
-            setSecs(a?.seconds || 0);
-            setRolling(false);
-          }, 1200);
-        })
+        (p) => showRoll(p.new))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [room?.id, acts]);
+  }, [room?.id]);
 
   useEffect(() => {
     if (!room) return;
     const t = setInterval(async () => {
       const { data } = await supabase.from('rooms').select('*').eq('id', room.id).single();
       if (data) setRoom(data);
+      // রিয়েলটাইম কাজ না করলেও পার্টনারের রোল ধরার জন্য
+      const { data: lr } = await supabase.from('rolls').select('*')
+        .eq('room_id', room.id).order('id', { ascending: false }).limit(1);
+      if (lr?.[0] && seenRoll.current !== null) showRoll(lr[0]);
       if (cur?.id && !cur.stopped) {
         const { data: r } = await supabase.rpc('vote_result', { rid: cur.id });
         if (r) setResult(r);
