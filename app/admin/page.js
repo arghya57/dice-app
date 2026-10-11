@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import Avatar, { SLOTS, SHAPES, BODY_KEYS } from '../../lib/Avatar';
 
 const KINDS = { action: 'অ্যাকশন', modifier: 'মডিফায়ার (কোথায়/কীভাবে)', truth: 'ট্রুথ', dare: 'ডেয়ার', card: 'কার্ড' };
 const DEF_LEVELS = {
@@ -17,6 +18,9 @@ const BOXES = [
   ['modifier', '📦 বক্স ২ · কোথায়/কীভাবে', 'পার্টনারের লিঙ্গ অনুযায়ী আসবে (যেমন: ঘাড়, ধীরে ধীরে)'],
 ];
 const BUCKET = 'card-images';
+const PEMPTY = { gender: 'female', name: '', bust: 60, waist: 40, hips: 65, belly: 25, thighs: 60 };
+const IEMPTY = { name: '', slot: 'top', shape: 'crop_top', color: '#ff3d7f', gender: 'female', level: 1, price: 20, image_url: '' };
+const SEMPTY = { name: '', emoji: '👗', gender: 'female', look: {} };
 
 // ছবি ছোট করে JPEG বানায় (ফ্রি স্টোরেজ বাঁচাতে + দ্রুত লোডের জন্য)
 const shrink = (file) => new Promise((res, rej) => {
@@ -58,6 +62,18 @@ export default function Admin() {
   const [gPrev, setGPrev] = useState('');
   const [rules, setRules] = useState([{ level: 1, coins: 5 }, { level: 2, coins: 10 }, { level: 3, coins: 20 }]);
   const [giveF, setGiveF] = useState({ email: '', coins: 0, gift: '', qty: 1 });
+  // অ্যাভাটার
+  const [aview, setAview] = useState('presets');
+  const [presets, setPresets] = useState([]);
+  const [pf, setPf] = useState(PEMPTY);
+  const [pEditId, setPEditId] = useState(null);
+  const [aItems, setAItems] = useState([]);
+  const [itf, setItf] = useState(IEMPTY);
+  const [iEditId, setIEditId] = useState(null);
+  const [iFile, setIFile] = useState(null);
+  const [aSets, setASets] = useState([]);
+  const [stf, setStf] = useState(SEMPTY);
+  const [giveItem, setGiveItem] = useState({ email: '', item: '' });
 
   const load = async () => {
     const { data } = await supabase.from('activities').select('*').order('id');
@@ -74,6 +90,12 @@ export default function Admin() {
     setGifts(gs || []);
     const { data: cr } = await supabase.from('coin_rules').select('*').order('level');
     if (cr?.length) setRules(cr);
+    const { data: bp } = await supabase.from('body_presets').select('*').order('id');
+    setPresets(bp || []);
+    const { data: ai } = await supabase.from('avatar_items').select('*').order('slot').order('id');
+    setAItems(ai || []);
+    const { data: as } = await supabase.from('avatar_sets').select('*').order('id');
+    setASets(as || []);
   };
 
   useEffect(() => {
@@ -267,6 +289,98 @@ export default function Admin() {
     setMsg(error ? error.message : '✅ দেওয়া হয়েছে');
   };
 
+  // ---------- অ্যাভাটার ----------
+  const savePreset = async () => {
+    if (!pf.name.trim()) return setMsg('প্রিসেটের নাম লিখুন');
+    const row = { gender: pf.gender, name: pf.name.trim() };
+    BODY_KEYS.forEach(([k]) => { row[k] = Math.max(0, Math.min(100, Number(pf[k]) || 0)); });
+    const { error } = pEditId
+      ? await supabase.from('body_presets').update(row).eq('id', pEditId)
+      : await supabase.from('body_presets').insert(row);
+    if (error) return setMsg(error.message);
+    setMsg(pEditId ? '✅ আপডেট হয়েছে' : '✅ প্রিসেট যোগ হয়েছে');
+    setPf(PEMPTY); setPEditId(null); load();
+  };
+  const editPreset = (b) => {
+    setPEditId(b.id);
+    setPf({ gender: b.gender, name: b.name, bust: b.bust, waist: b.waist, hips: b.hips, belly: b.belly, thighs: b.thighs });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const togglePreset = async (b) => { await supabase.from('body_presets').update({ is_active: !b.is_active }).eq('id', b.id); load(); };
+  const delPreset = async (b) => {
+    if (!confirm('মুছবেন?')) return;
+    const { error } = await supabase.from('body_presets').delete().eq('id', b.id);
+    if (error) setMsg(error.message);
+    load();
+  };
+
+  const setItem = (k, v) => setItf((f) => {
+    const n = { ...f, [k]: v };
+    if (k === 'slot') n.shape = (SHAPES[v] || [[]])[0][0];
+    return n;
+  });
+  const saveItem = async () => {
+    if (!itf.name.trim()) return setMsg('নাম লিখুন');
+    setBusy(true);
+    try {
+      let image_url = itf.image_url || null;
+      if (iFile) {
+        const blob = await shrink(iFile);
+        const path = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+        if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
+        image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      }
+      const row = {
+        name: itf.name.trim(), slot: itf.slot, shape: itf.shape, color: itf.color,
+        gender: itf.gender, level: Number(itf.level) || 1, price: Math.max(0, Number(itf.price) || 0), image_url,
+      };
+      const { error } = iEditId
+        ? await supabase.from('avatar_items').update(row).eq('id', iEditId)
+        : await supabase.from('avatar_items').insert(row);
+      if (error) return setMsg(error.message);
+      setMsg(iEditId ? '✅ আপডেট হয়েছে' : '✅ আইটেম যোগ হয়েছে');
+      setItf(IEMPTY); setIEditId(null); setIFile(null); load();
+    } catch (e) {
+      setMsg(e.message || 'কিছু একটা ভুল হয়েছে');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const editItem = (a) => {
+    setIEditId(a.id); setIFile(null);
+    setItf({ name: a.name, slot: a.slot, shape: a.shape, color: a.color, gender: a.gender, level: a.level, price: a.price, image_url: a.image_url || '' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const toggleItem = async (a) => { await supabase.from('avatar_items').update({ is_active: !a.is_active }).eq('id', a.id); load(); };
+  const delItem = async (a) => {
+    if (!confirm('মুছবেন? যাদের কাছে আছে তাদের কাছ থেকেও যাবে।')) return;
+    const { error } = await supabase.from('avatar_items').delete().eq('id', a.id);
+    if (error) setMsg(error.message);
+    load();
+  };
+
+  const saveSet = async () => {
+    if (!stf.name.trim()) return setMsg('সেটের নাম লিখুন');
+    const look = {};
+    Object.entries(stf.look).forEach(([k, v]) => { if (v) look[k] = Number(v); });
+    if (!Object.keys(look).length) return setMsg('কমপক্ষে একটি আইটেম বাছুন');
+    const { error } = await supabase.from('avatar_sets').insert({ name: stf.name.trim(), emoji: stf.emoji || '👗', gender: stf.gender, look });
+    if (error) return setMsg(error.message);
+    setMsg('✅ থিম সেট যোগ হয়েছে'); setStf(SEMPTY); load();
+  };
+  const toggleSet = async (a) => { await supabase.from('avatar_sets').update({ is_active: !a.is_active }).eq('id', a.id); load(); };
+  const delSet = async (a) => {
+    if (!confirm('মুছবেন?')) return;
+    await supabase.from('avatar_sets').delete().eq('id', a.id);
+    load();
+  };
+  const giveItemTo = async () => {
+    if (!giveItem.email.trim() || !giveItem.item) return setMsg('ইমেইল ও আইটেম বাছুন');
+    const { error } = await supabase.rpc('admin_give_item', { p_email: giveItem.email, p_item: Number(giveItem.item) });
+    setMsg(error ? error.message : '✅ আইটেম দেওয়া হয়েছে');
+  };
+
   const box = { maxWidth: 480, margin: '0 auto', padding: 20 };
   const inp = { width: '100%', padding: 12, margin: '6px 0', borderRadius: 8, border: 'none', boxSizing: 'border-box', fontSize: 16 };
   const btn = { padding: '10px 16px', margin: 4, borderRadius: 8, border: 'none', background: '#e94560', color: '#fff', fontSize: 15 };
@@ -288,7 +402,7 @@ export default function Admin() {
       <a href="/" style={{ color: '#ffd369' }}>← হোম</a>
 
       <div style={{ margin: '10px 0' }}>
-        {[['dice', '🎲 ডাইস বক্স'], ['gifts', '🎁 গিফট'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
+        {[['dice', '🎲 ডাইস বক্স'], ['gifts', '🎁 গিফট'], ['avatar', '👗 অ্যাভাটার'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
           <button key={k} style={chip(view === k)} onClick={() => { setView(k); setMsg(''); }}>{l}</button>)}
       </div>
       {msg && view !== 'all' && <p style={{ color: '#ffd369' }}>{msg}</p>}
@@ -418,6 +532,140 @@ export default function Admin() {
               </div>
             </div>
           ))}
+        </>
+      )}
+
+      {view === 'avatar' && (
+        <>
+          <div>
+            {[['presets', '🧍 বডি গড়ন'], ['items', '👙 পোশাক'], ['sets', '🎭 থিম সেট'], ['give', '👑 আইটেম দিন']].map(([k, l]) =>
+              <button key={k} style={chip(aview === k)} onClick={() => { setAview(k); setMsg(''); }}>{l}</button>)}
+          </div>
+
+          {aview === 'presets' && (
+            <>
+              <p style={{ fontSize: 13, color: '#aaa' }}>প্রতিটি প্রিসেটে স্লাইডার (০–১০০) দিয়ে গড়ন ঠিক করুন। ইউজাররা এখান থেকে নিজের গড়ন বাছবে। প্রিভিউ সাথে সাথে বদলায়।</p>
+              <div style={panel}>
+                <div style={{ fontSize: 17 }}>{pEditId ? '✏️ প্রিসেট এডিট' : '➕ নতুন প্রিসেট'}</div>
+                <Avatar gender={pf.gender} body={pf} width={150} />
+                <select style={inp} value={pf.gender} onChange={(e) => setPf({ ...pf, gender: e.target.value })}>
+                  <option value="female">♀️ নারী</option>
+                  <option value="male">♂️ পুরুষ</option>
+                </select>
+                <input style={inp} placeholder="নাম, যেমন: কার্ভি" value={pf.name} onChange={(e) => setPf({ ...pf, name: e.target.value })} />
+                {BODY_KEYS.map(([k, l]) => (
+                  <div key={k}>
+                    <label style={lbl}>{l}: {pf[k]}</label>
+                    <input style={{ width: '100%' }} type="range" min="0" max="100" value={pf[k]} onChange={(e) => setPf({ ...pf, [k]: Number(e.target.value) })} />
+                  </div>
+                ))}
+                <button style={btn} onClick={savePreset}>{pEditId ? 'সেভ করুন' : 'যোগ করুন'}</button>
+                {pEditId && <button style={{ ...btn, background: '#555' }} onClick={() => { setPf(PEMPTY); setPEditId(null); }}>বাতিল</button>}
+              </div>
+              {presets.map((b) => (
+                <div key={b.id} style={{ ...panel, opacity: b.is_active ? 1 : 0.5 }}>
+                  <div style={{ fontSize: 16 }}>{b.gender === 'male' ? '♂️' : '♀️'} {b.name}</div>
+                  <small>বক্ষ {b.bust} · কোমর {b.waist} · পেট {b.belly} · নিতম্ব {b.hips} · উরু {b.thighs}</small>
+                  <div>
+                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => editPreset(b)}>এডিট</button>
+                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => togglePreset(b)}>{b.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delPreset(b)}>মুছুন</button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {aview === 'items' && (
+            <>
+              <div style={panel}>
+                <div style={{ fontSize: 17 }}>{iEditId ? '✏️ আইটেম এডিট' : '➕ নতুন পোশাক/আইটেম'}</div>
+                <Avatar gender={itf.gender === 'male' ? 'male' : 'female'} body={itf.gender === 'male' ? { bust: 80, waist: 40, hips: 45, belly: 15, thighs: 55 } : { bust: 75, waist: 35, hips: 80, belly: 30, thighs: 70 }} outfit={{ [itf.slot]: itf }} width={150} />
+                <input style={inp} placeholder="নাম" value={itf.name} onChange={(e) => setItem('name', e.target.value)} />
+                <label style={lbl}>জায়গা</label>
+                <select style={inp} value={itf.slot} onChange={(e) => setItem('slot', e.target.value)}>
+                  {Object.entries(SLOTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <label style={lbl}>আকৃতি</label>
+                <select style={inp} value={itf.shape} onChange={(e) => setItem('shape', e.target.value)}>
+                  {(SHAPES[itf.slot] || []).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <label style={lbl}>রং</label>
+                <input style={{ ...inp, height: 44, padding: 4 }} type="color" value={itf.color} onChange={(e) => setItem('color', e.target.value)} />
+                <label style={lbl}>কার জন্য</label>
+                <select style={inp} value={itf.gender} onChange={(e) => setItem('gender', e.target.value)}>
+                  {Object.entries(GENDERS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <label style={lbl}>লেভেল (১ সাধারণ · ২ রেয়ার · ৩ লেজেন্ডারি)</label>
+                <select style={inp} value={itf.level} onChange={(e) => setItem('level', e.target.value)}>{levelOptions}</select>
+                <label style={lbl}>দাম (কয়েন, ০ = সবার জন্য ফ্রি)</label>
+                <input style={inp} type="number" min="0" value={itf.price} onChange={(e) => setItem('price', e.target.value)} />
+                <label style={lbl}>নিজের ছবি (ঐচ্ছিক): ২০০×৪২৪ আকারের স্বচ্ছ PNG লেয়ার দিলে উপরের আকৃতির বদলে এটা দেখাবে</label>
+                {itf.image_url && <div><small style={{ color: '#aaa' }}>ছবি আছে</small> <button style={{ ...btn, background: '#8b1e2d', padding: '4px 10px', fontSize: 12 }} onClick={() => setItem('image_url', '')}>সরান</button></div>}
+                <input style={{ ...inp, background: '#0f1a33', color: '#fff' }} type="file" accept="image/*" onChange={(e) => setIFile(e.target.files?.[0] || null)} />
+                <button style={btn} onClick={saveItem} disabled={busy}>{busy ? 'অপেক্ষা করুন...' : iEditId ? 'সেভ করুন' : 'যোগ করুন'}</button>
+                {iEditId && <button style={{ ...btn, background: '#555' }} onClick={() => { setItf(IEMPTY); setIEditId(null); setIFile(null); }}>বাতিল</button>}
+              </div>
+              <h3>সব আইটেম ({aItems.length})</h3>
+              {aItems.map((a) => (
+                <div key={a.id} style={{ ...panel, opacity: a.is_active ? 1 : 0.5 }}>
+                  <span style={{ display: 'inline-block', width: 22, height: 22, borderRadius: 11, background: a.color, border: '2px solid #fff', marginRight: 8, verticalAlign: 'middle' }} />
+                  <span style={{ fontSize: 16 }}>{a.name}</span><br />
+                  <small>{SLOTS[a.slot]} · {GENDERS[a.gender]} · {lvName(a.level)} · 🪙 {a.price}{a.image_url ? ' · 🖼️' : ''} · {a.is_active ? 'চালু' : 'বন্ধ'}</small>
+                  <div>
+                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => editItem(a)}>এডিট</button>
+                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleItem(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delItem(a)}>মুছুন</button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {aview === 'sets' && (
+            <>
+              <div style={panel}>
+                <div style={{ fontSize: 17 }}>➕ নতুন থিম সেট (এক চাপে পুরো লুক)</div>
+                <input style={inp} placeholder="নাম, যেমন: বিচ নাইট" value={stf.name} onChange={(e) => setStf({ ...stf, name: e.target.value })} />
+                <input style={inp} placeholder="ইমোজি" value={stf.emoji} onChange={(e) => setStf({ ...stf, emoji: e.target.value })} />
+                <select style={inp} value={stf.gender} onChange={(e) => setStf({ ...stf, gender: e.target.value, look: {} })}>
+                  {Object.entries(GENDERS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                {Object.entries(SLOTS).map(([slot, l]) => (
+                  <div key={slot}>
+                    <label style={lbl}>{l}</label>
+                    <select style={inp} value={stf.look[slot] || ''} onChange={(e) => setStf({ ...stf, look: { ...stf.look, [slot]: e.target.value } })}>
+                      <option value="">— নেই —</option>
+                      {aItems.filter((a) => a.slot === slot && (stf.gender === 'any' || a.gender === 'any' || a.gender === stf.gender)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </div>
+                ))}
+                <button style={btn} onClick={saveSet}>যোগ করুন</button>
+              </div>
+              {aSets.map((a) => (
+                <div key={a.id} style={{ ...panel, opacity: a.is_active ? 1 : 0.5 }}>
+                  <div style={{ fontSize: 16 }}>{a.emoji} {a.name}</div>
+                  <small>{GENDERS[a.gender]} · {Object.keys(a.look || {}).length}টি আইটেম · {a.is_active ? 'চালু' : 'বন্ধ'}</small>
+                  <div>
+                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleSet(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delSet(a)}>মুছুন</button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {aview === 'give' && (
+            <div style={panel}>
+              <div style={{ fontSize: 17 }}>👑 ইউজারকে পোশাক উপহার</div>
+              <input style={inp} placeholder="ইউজারের ইমেইল" value={giveItem.email} onChange={(e) => setGiveItem({ ...giveItem, email: e.target.value })} />
+              <select style={inp} value={giveItem.item} onChange={(e) => setGiveItem({ ...giveItem, item: e.target.value })}>
+                <option value="">— আইটেম বাছুন —</option>
+                {aItems.map((a) => <option key={a.id} value={a.id}>{SLOTS[a.slot]} · {a.name}</option>)}
+              </select>
+              <button style={btn} onClick={giveItemTo}>🎁 দিন</button>
+            </div>
+          )}
         </>
       )}
 
