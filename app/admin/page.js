@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import Avatar, { SLOTS, SHAPES, BODY_KEYS } from '../../lib/Avatar';
 
-const KINDS = { action: 'অ্যাকশন', modifier: 'মডিফায়ার (কোথায়/কীভাবে)', truth: 'ট্রুথ', dare: 'ডেয়ার', card: 'কার্ড' };
+const KINDS = { action: 'অ্যাকশন', modifier: 'মডিফায়ার (কোথায়/কীভাবে)', truth: 'ট্রুথ', dare: 'ডেয়ার', card: 'কার্ড', wheel: 'চাকার সেগমেন্ট' };
 const DEF_LEVELS = {
   1: { name: 'লেভেল ১ · হালকা', icon: '🌸' },
   2: { name: 'লেভেল ২ · রোমান্টিক', icon: '💋' },
@@ -18,6 +18,47 @@ const BOXES = [
   ['modifier', '📦 বক্স ২ · কোথায়/কীভাবে', 'পার্টনারের লিঙ্গ অনুযায়ী আসবে (যেমন: ঘাড়, ধীরে ধীরে)'],
 ];
 const BUCKET = 'card-images';
+// চাকার ডিফল্ট সেগমেন্ট: [লেভেল, 'চাকায় যা দেখাবে | ফলাফলে যা দেখাবে']
+const WHEEL_DEFAULTS = [
+  [1, 'চুমু | ১ মিনিট ধীরে ধীরে চুমু দিন'], [1, 'ম্যাসাজ | ৫ মিনিট কাঁধ ও পিঠে ম্যাসাজ দিন'], [1, 'আলিঙ্গন | চোখ বন্ধ করে ২ মিনিট জড়িয়ে থাকুন'],
+  [1, 'ফিসফিস | কানে ফিসফিস করে একটা প্রশংসা করুন'], [1, 'নাচ | একটা গানে ধীরে ধীরে নাচুন'], [1, 'হাত ধরা | আঙুলে আঙুল জড়িয়ে ৩ মিনিট কথা বলুন'],
+  [1, 'চোখে চোখ | ১ মিনিট চোখে চোখ রেখে থাকুন'], [1, 'প্রশংসা | আমার ৩টা জিনিস বলুন যা আপনার ভালো লাগে'],
+  [2, 'চোখ বাঁধা | একজনের চোখ বেঁধে পালক বা বরফে অনুভূতি জাগান'], [2, 'রোলপ্লে | অচেনা দুজনের প্রথম সাক্ষাৎ অভিনয় করুন'],
+  [2, 'টিজ | দীর্ঘ চুমু আর আদর, কিন্তু সীমা মেনে'], [2, 'ড্রেসআপ | পার্টনারের পছন্দের পোশাক পরুন'],
+  [2, 'ঘাড়ে চুমু | গলা ও কাঁধে ধীরে ধীরে চুমু দিন'], [2, 'তেল ম্যাসাজ | হালকা গরম তেলে সারা শরীরে ম্যাসাজ'],
+  [2, 'নিয়ন্ত্রণ | আজ কে নেতৃত্ব দেবে বেছে নিন'], [2, 'ফ্যান্টাসি | নিজের একটা ফ্যান্টাসি ফিসফিস করে বলুন'],
+  [3, 'শাওয়ার | একসাথে গরম শাওয়ারে ঘনিষ্ঠ হোন'], [3, 'স্ট্রিপটিজ | ধীরে ধীরে একটা একটা করে পোশাক খুলুন'],
+  [3, 'টিজ ও অপেক্ষা | কাছে এনে থেমে যান, প্রত্যাশা বাড়ান'], [3, 'রোলপ্লে+ | বস ও সেক্রেটারির দৃশ্য অভিনয় করুন'],
+  [3, 'নেতৃত্ব | পার্টনার ৫ মিনিট পুরো নেতৃত্ব দেবে'], [3, 'নতুন জায়গা | ঘরের অন্য জায়গায় ঘনিষ্ঠ হোন'],
+  [3, 'গোপন কথা | কানে খোলামেলা একটা ইচ্ছা বলুন'], [3, 'আপনার পছন্দ | পার্টনার একটা ইচ্ছা বেছে নেবে, আপনি রাজি হলে পূরণ'],
+];
+const WHEEL_COLORS = {
+  1: ['#f3d9b1', '#e8b9a0', '#d9c28a', '#e5a9a9'],
+  2: ['#d9a35f', '#c9788a', '#b98a4a', '#a65f78'],
+  3: ['#8e2a3c', '#5b1d4a', '#b0533a', '#3d1a40'],
+};
+const wheelParts = (t) => {
+  const [l, ...r] = String(t || '').split('|');
+  return { label: l.trim(), detail: r.join('|').trim() };
+};
+// অ্যাডমিনের প্রিভিউ চাকা (SVG স্ট্রিং)
+const miniWheel = (segs, level) => {
+  const n = segs.length; const R = 138; const step = 360 / Math.max(n, 1);
+  const pal = WHEEL_COLORS[level] || WHEEL_COLORS[1];
+  const P = (deg, r) => { const t = ((deg - 90) * Math.PI) / 180; return [150 + r * Math.cos(t), 150 + r * Math.sin(t)]; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let body = '';
+  segs.forEach((s, i) => {
+    const [x1, y1] = P(i * step, R); const [x2, y2] = P((i + 1) * step, R);
+    const [tx, ty] = P((i + 0.5) * step, 92); const th = (i + 0.5) * step;
+    const rot = th - 90 + (th > 180 ? 180 : 0);
+    const lab = wheelParts(s.title).label; const txt = lab.length > 12 ? lab.slice(0, 11) + '…' : lab;
+    body += n === 1 ? `<circle cx="150" cy="150" r="${R}" fill="${pal[0]}"/>`
+      : `<path d="M150,150 L${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${step > 180 ? 1 : 0} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${pal[i % pal.length]}" stroke="#d4af37" stroke-width="1.5"/>`;
+    body += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="${n <= 8 ? 13 : 10.5}" font-weight="700" text-anchor="middle" dominant-baseline="middle" fill="${level === 3 ? '#fff3d6' : '#3a2318'}" transform="rotate(${rot.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})">${esc(txt)}</text>`;
+  });
+  return `<svg viewBox="0 0 300 300" style="width:100%;height:100%"><circle cx="150" cy="150" r="146" fill="#1c1410" stroke="#d4af37" stroke-width="4"/>${body}<circle cx="150" cy="150" r="22" fill="#2a2420" stroke="#d4af37" stroke-width="3"/><path d="M140,2 L160,2 L150,24 Z" fill="#d4af37"/></svg>`;
+};
 const PEMPTY = { gender: 'female', name: '', bust: 60, waist: 40, hips: 65, belly: 25, thighs: 60 };
 const IEMPTY = { name: '', slot: 'top', shape: 'crop_top', color: '#ff3d7f', gender: 'female', level: 1, price: 20, image_url: '' };
 const SEMPTY = { name: '', emoji: '👗', gender: 'female', look: {} };
@@ -51,6 +92,8 @@ export default function Admin() {
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState('dice');
+  const [wf, setWf] = useState({ label: '', detail: '', level: 1, seconds: 0 });
+  const [wLevel, setWLevel] = useState(1);
   const [diceG, setDiceG] = useState('any');
   const [qa, setQa] = useState({ action: { title: '', level: 1 }, modifier: { title: '', level: 1 } });
   const [levels, setLevels] = useState(DEF_LEVELS);
@@ -381,6 +424,27 @@ export default function Admin() {
     setMsg(error ? error.message : '✅ আইটেম দেওয়া হয়েছে');
   };
 
+  // ---------- চাকা ----------
+  const addWheel = async () => {
+    if (!wf.label.trim()) return setMsg('চাকায় যা দেখাবে সেই নাম লিখুন');
+    const title = wf.detail.trim() ? `${wf.label.trim()} | ${wf.detail.trim()}` : wf.label.trim();
+    const { error } = await supabase.from('activities').insert({
+      title, kind: 'wheel', level: Number(wf.level), mood: 'any', seconds: Number(wf.seconds) || 0, gender: 'any', image_url: null,
+    });
+    if (error) return setMsg(error.message);
+    setWf((p) => ({ ...p, label: '', detail: '' }));
+    setMsg('✅ সেগমেন্ট যোগ হয়েছে');
+    load();
+  };
+  const addWheelDefaults = async () => {
+    const have = list.filter((x) => x.kind === 'wheel').length;
+    if (have > 0 && !confirm(`আগে থেকে ${have}টি সেগমেন্ট আছে। ডিফল্টগুলো আরও যোগ করবেন?`)) return;
+    const rows = WHEEL_DEFAULTS.map(([level, title]) => ({ title, kind: 'wheel', level, mood: 'any', seconds: 0, gender: 'any', image_url: null }));
+    const { error } = await supabase.from('activities').insert(rows);
+    setMsg(error ? error.message : '✅ ডিফল্ট সেগমেন্ট যোগ হয়েছে');
+    load();
+  };
+
   const box = { maxWidth: 480, margin: '0 auto', padding: 20 };
   const inp = { width: '100%', padding: 12, margin: '6px 0', borderRadius: 8, border: 'none', boxSizing: 'border-box', fontSize: 16 };
   const btn = { padding: '10px 16px', margin: 4, borderRadius: 8, border: 'none', background: '#e94560', color: '#fff', fontSize: 15 };
@@ -402,7 +466,7 @@ export default function Admin() {
       <a href="/" style={{ color: '#ffd369' }}>← হোম</a>
 
       <div style={{ margin: '10px 0' }}>
-        {[['dice', '🎲 ডাইস বক্স'], ['gifts', '🎁 গিফট'], ['avatar', '👗 অ্যাভাটার'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
+        {[['dice', '🎲 ডাইস বক্স'], ['wheel', '🎡 চাকা'], ['gifts', '🎁 গিফট'], ['avatar', '👗 অ্যাভাটার'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
           <button key={k} style={chip(view === k)} onClick={() => { setView(k); setMsg(''); }}>{l}</button>)}
       </div>
       {msg && view !== 'all' && <p style={{ color: '#ffd369' }}>{msg}</p>}
@@ -668,6 +732,51 @@ export default function Admin() {
           )}
         </>
       )}
+
+      {view === 'wheel' && (() => {
+        const segs = list.filter((x) => x.kind === 'wheel' && x.level === Number(wLevel)).sort((x, y) => x.id - y.id);
+        const active = segs.filter((x) => x.is_active);
+        return (
+          <>
+            <p style={{ fontSize: 13, color: '#aaa' }}>
+              প্রতিটি হিট লেভেলের আলাদা চাকা। লেখার ধরন: <b>চাকায় যা দেখাবে | ফলাফলে যা দেখাবে</b> (পরের অংশ না দিলে একই লেখা দেখাবে)। ৬ থেকে ১০টি সেগমেন্ট সবচেয়ে ভালো দেখায়।
+            </p>
+            <div>
+              {[1, 2, 3].map((n) => <button key={n} style={chip(Number(wLevel) === n)} onClick={() => { setWLevel(n); setWf((p) => ({ ...p, level: n })); }}>{lvName(n)}</button>)}
+            </div>
+            <div style={panel}>
+              <div style={{ fontSize: 17 }}>👀 প্রিভিউ ({active.length}টি চালু সেগমেন্ট)</div>
+              <div style={{ width: 240, height: 240, margin: '10px auto' }} dangerouslySetInnerHTML={{ __html: miniWheel(active.slice().sort((x, y) => x.id - y.id), Number(wLevel)) }} />
+              {active.length < 3 && <small style={{ color: '#f2c078' }}>কমপক্ষে ৩টি সেগমেন্ট রাখুন</small>}
+            </div>
+            <div style={panel}>
+              <div style={{ fontSize: 17 }}>➕ নতুন সেগমেন্ট</div>
+              <input style={inp} placeholder="চাকায় যা দেখাবে (ছোট), যেমন: ম্যাসাজ" value={wf.label} onChange={(e) => setWf((p) => ({ ...p, label: e.target.value }))} />
+              <input style={inp} placeholder="ফলাফলে যা দেখাবে, যেমন: ৫ মিনিট পিঠে ম্যাসাজ দিন" value={wf.detail} onChange={(e) => setWf((p) => ({ ...p, detail: e.target.value }))} />
+              <label style={lbl}>টাইমার সেকেন্ড (০ = নেই)</label>
+              <input style={inp} type="number" min="0" value={wf.seconds} onChange={(e) => setWf((p) => ({ ...p, seconds: e.target.value }))} />
+              <button style={btn} onClick={addWheel}>➕ {lvName(wLevel)} চাকায় যোগ করুন</button>
+              <button style={{ ...btn, background: '#555' }} onClick={addWheelDefaults}>✨ ডিফল্ট ২৪টি যোগ করুন</button>
+            </div>
+            {segs.map((s) => {
+              const p = wheelParts(s.title);
+              return (
+                <div key={s.id} style={{ ...panel, opacity: s.is_active ? 1 : 0.5 }}>
+                  <div style={{ fontSize: 16 }}>🎡 {p.label}</div>
+                  {p.detail && <small style={{ color: '#ccc' }}>{p.detail}</small>}
+                  <div><small>{s.seconds > 0 ? `${s.seconds}সে · ` : ''}{s.is_active ? 'চালু' : 'বন্ধ'}</small></div>
+                  <div>
+                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(s)}>এডিট</button>
+                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(s)}>{s.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => del(s)}>মুছুন</button>
+                  </div>
+                </div>
+              );
+            })}
+            {segs.length === 0 && <small style={{ color: '#888' }}>এই লেভেলে এখনো কিছু নেই</small>}
+          </>
+        );
+      })()}
 
       {view === 'levels' && (
         <>
