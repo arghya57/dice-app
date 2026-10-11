@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import Avatar, { SLOTS, HAIR_STYLES, SKINS, HAIR_COLORS } from '../lib/Avatar';
 
 const MOODS = { any: '🎲 যেকোনো', romantic: '💕 রোমান্টিক', naughty: '😏 দুষ্টু', tired: '😴 ক্লান্ত' };
 // ডিফল্ট লেভেল নাম (অ্যাডমিন প্যানেল থেকে বদলানো যায়, না বদলালে এগুলো দেখাবে)
@@ -22,6 +23,7 @@ const T = {
   wish:    { icon: '💭', label: 'উইশ',    color: '#ff7eb6', title: 'গোপন ইচ্ছা', desc: '', hero: '', btn: '', stk: ['🤫', '💌', '🌙'] },
   history: { icon: '⭐', label: 'হিস্ট্রি', color: '#ffd369', title: 'পছন্দ ও ইতিহাস', desc: '', hero: '', btn: '', stk: ['⭐', '💝', '🕰️'] },
   gifts:   { icon: '🎁', label: 'গিফট',   color: '#ff9f1c', title: 'গিফট ও কয়েন', desc: '', hero: '', btn: '', stk: ['🎁', '💝', '✨'] },
+  avatar:  { icon: '👗', label: 'সাজ',   color: '#ff6ad5', title: 'সাজ-সজ্জা', desc: '', hero: '', btn: '', stk: ['👗', '💄', '👠'] },
   chat:    { icon: '🗨️', label: 'চ্যাট',   color: '#5ec8ff', title: 'রুম চ্যাট', desc: '', hero: '', btn: '', stk: ['💌', '😘', '🫶'] },
 };
 const GAME_TABS = ['dice', 'card', 'truth', 'dare'];
@@ -151,6 +153,14 @@ const CSS = `
 .gcx .gs{font-size:11px;color:#d9b4c6;margin-top:3px}
 .modal{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.75)}
 .mbox{width:100%;max-width:300px;padding:18px;border-radius:24px;background:#1b0a26;border:1.5px solid var(--accent);box-shadow:0 0 40px -6px var(--accent)}
+.avrow{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.avstage{margin:8px 0;padding:10px 0;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,.25));border:1px solid rgba(255,255,255,.14)}
+.sw{display:inline-block;width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.4);margin:3px;cursor:pointer;padding:0;vertical-align:middle}
+.sw.on{border-color:#fff;box-shadow:0 0 12px #fff}
+.itile{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;padding:12px 6px;border-radius:16px;border:2px solid var(--rc);background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:14px;cursor:pointer}
+.itile.r1{--rc:#9fb3c8}.itile.r2{--rc:#5ec8ff}.itile.r3{--rc:#ffd369}
+.itile.eq{background:var(--rc);color:#111}
+.itile small{font-size:11px;opacity:.85}
 @keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(-4px)}}
 @keyframes dance{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-12px) rotate(10deg)}}
 @keyframes wave{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -209,6 +219,17 @@ export default function Home() {
   const [popup, setPopup] = useState(null);
   const claimedRef = useRef(new Set());
   const lastEvt = useRef(null);
+  // অ্যাভাটার
+  const [avItems, setAvItems] = useState([]);
+  const [avPresets, setAvPresets] = useState([]);
+  const [avSets, setAvSets] = useState([]);
+  const [avMap, setAvMap] = useState({});
+  const [owned, setOwned] = useState(new Set());
+  const [avWho, setAvWho] = useState('me');
+  const [avSlot, setAvSlot] = useState('top');
+  const [draft, setDraft] = useState(null);
+  const [avEdit, setAvEdit] = useState(false);
+  const [avForm, setAvForm] = useState({ gender: 'female', preset: null, skin: SKINS[1], hairStyle: 'long', hairColor: HAIR_COLORS[1] });
   const seenRoll = useRef(null);
   const actsRef = useRef([]);
   actsRef.current = acts;
@@ -343,6 +364,7 @@ export default function Home() {
     const n = g ? `${g.emoji || '🎁'} ${g.name}` : 'একটি গিফট';
     if (e.kind === 'received') return `🎁 পার্টনার আপনাকে পাঠিয়েছে: ${n}`;
     if (e.kind === 'opened') return `🎉 পার্টনার মিস্ট্রি বক্স খুলেছে, ভেতরে ছিল: ${n}`;
+    if (e.kind === 'dressed') return '👗 পার্টনার আপনাকে নতুন সাজে সাজিয়েছে! এসে দেখুন';
     return `👑 অ্যাডমিন থেকে উপহার: ${n}`;
   };
 
@@ -393,6 +415,91 @@ export default function Home() {
         {sub && <div className="gs">{sub}</div>}
       </div>
     );
+  };
+
+  // ---------- অ্যাভাটার ----------
+  const loadAvatar = async (full = true) => {
+    if (!user) return;
+    const ids = [user.id, partnerId].filter(Boolean);
+    const { data: av } = await supabase.from('avatars').select('*').in('user_id', ids);
+    const m = {};
+    (av || []).forEach((a) => { m[a.user_id] = a; });
+    setAvMap(m);
+    if (!full) return;
+    const [{ data: it }, { data: pr }, { data: st }, { data: ui }] = await Promise.all([
+      supabase.from('avatar_items').select('*').order('slot').order('price'),
+      supabase.from('body_presets').select('*').order('id'),
+      supabase.from('avatar_sets').select('*').order('id'),
+      supabase.from('user_items').select('item_id').eq('user_id', user.id),
+    ]);
+    setAvItems(it || []); setAvPresets(pr || []); setAvSets(st || []);
+    setOwned(new Set((ui || []).map((x) => x.item_id)));
+    if (!m[user.id]) setAvForm((f) => ({ ...f, gender: myGender === 'male' ? 'male' : 'female', preset: null }));
+  };
+  const avBody = (a) => avPresets.find((p) => p.id === a?.preset_id) || {};
+  const avOutfit = (lk) => {
+    const o = {};
+    Object.entries(lk || {}).forEach(([k, v]) => {
+      const it = avItems.find((x) => x.id === Number(v));
+      if (it) o[k] = it;
+    });
+    return o;
+  };
+  const toggleLook = (lk, it) => {
+    const n = { ...lk };
+    if (n[it.slot] === it.id) { delete n[it.slot]; return n; }
+    n[it.slot] = it.id;
+    if (it.slot === 'dress') { delete n.top; delete n.bottom; }
+    if ((it.slot === 'top' || it.slot === 'bottom') && n.dress) delete n.dress;
+    return n;
+  };
+  const applySet = (st) => {
+    const n = {};
+    let miss = 0;
+    Object.entries(st.look || {}).forEach(([k, v]) => {
+      const it = avItems.find((x) => x.id === Number(v));
+      if (!it) return;
+      if (it.price <= 0 || owned.has(it.id)) n[k] = it.id; else miss += 1;
+    });
+    setDraft(n);
+    setMsg(miss ? `🔒 ${miss}টি আইটেম আপনার নেই, সেগুলো বাদ দিয়ে পরানো হয়েছে` : '');
+  };
+  const startEditAvatar = () => {
+    const a = avMap[user.id];
+    if (a) setAvForm({ gender: a.gender, preset: a.preset_id, skin: a.skin, hairStyle: a.hair_style, hairColor: a.hair_color });
+    setAvEdit(true);
+  };
+  const saveProfile = async () => {
+    const pid = avForm.preset ?? avPresets.find((p) => p.gender === avForm.gender && p.is_active)?.id ?? null;
+    setGbusy(true);
+    const { error } = await supabase.rpc('save_avatar', {
+      p_gender: avForm.gender, p_preset: pid, p_skin: avForm.skin,
+      p_hair_style: avForm.hairStyle, p_hair_color: avForm.hairColor,
+    });
+    setGbusy(false);
+    if (error) return setMsg(error.message);
+    setAvEdit(false); setDraft(null);
+    setMsg('✅ অ্যাভাটার সেভ হয়েছে');
+    loadAvatar();
+  };
+  const saveLook = async (tId, lk) => {
+    setGbusy(true);
+    const { error } = await supabase.rpc('set_look', { p_target: tId, p_look: lk });
+    setGbusy(false);
+    if (error) return setMsg(error.message);
+    setDraft(null);
+    setMsg(tId === user.id ? '✅ সাজ সেভ হয়েছে' : '💝 পার্টনারকে সাজানো হয়েছে');
+    loadAvatar(false);
+  };
+  const buyItem = async (it) => {
+    if (!window.confirm(`"${it.name}" কিনতে ${it.price} কয়েন লাগবে। কিনবেন?`)) return;
+    setGbusy(true);
+    const { data, error } = await supabase.rpc('buy_item', { p_item: it.id });
+    setGbusy(false);
+    if (error) return setMsg(error.message);
+    setCoins(data);
+    setMsg('🛍️ কেনা হয়েছে');
+    loadAvatar();
   };
 
   const showRoll = (r) => {
@@ -481,6 +588,7 @@ export default function Home() {
       }
       checkGiftEvents();
       if (tab === 'gifts') loadGifts();
+      if (tab === 'avatar') loadAvatar(false);
       if (tab === 'wish') loadWishes();
       if (tab === 'chat') loadMsgs();
     }, 3000);
@@ -520,6 +628,7 @@ export default function Home() {
     if (tab === 'wish') loadWishes();
     if (tab === 'history') { loadHistory(); loadFavs(); }
     if (tab === 'gifts') loadGifts();
+    if (tab === 'avatar') { setDraft(null); setAvWho('me'); loadAvatar(); }
   }, [tab, room?.id]);
 
   // পুশ নোটিফিকেশন
@@ -845,7 +954,7 @@ export default function Home() {
             </div>
 
             {gnotice && (
-              <div className="notice" onClick={() => { setGnotice(null); setGv('mine'); setTab('gifts'); }}>
+              <div className="notice" onClick={() => { const dr = gnotice.kind === 'dressed'; setGnotice(null); setGv('mine'); setTab(dr ? 'avatar' : 'gifts'); }}>
                 {noticeText(gnotice)}
               </div>
             )}
@@ -915,6 +1024,9 @@ export default function Home() {
                 <div className="row2">
                   <button className="mini" style={{ '--c': T.gifts.color }} onClick={() => setTab('gifts')}>🎁 গিফট</button>
                   <div className="mini" style={{ '--c': '#ffd369' }}>🪙 {coins} কয়েন</div>
+                </div>
+                <div className="row2" style={{ gridTemplateColumns: '1fr' }}>
+                  <button className="mini" style={{ '--c': T.avatar.color }} onClick={() => setTab('avatar')}>👗 সাজ-সজ্জা (অ্যাভাটার)</button>
                 </div>
                 <p className="muted">🛡️ ⛔ থামুন বাটন সব গেমেই আছে। কেউ অস্বস্তি বোধ করলে সাথে সাথে থামান। 💗</p>
 
@@ -1175,6 +1287,106 @@ export default function Home() {
                 )}
               </>
             )}
+
+            {tab === 'avatar' && (() => {
+              const mine = avMap[user.id];
+              const theirs = partnerId ? avMap[partnerId] : null;
+              const target = avWho === 'me' ? mine : theirs;
+              const tId = avWho === 'me' ? user.id : partnerId;
+              const look = draft ?? target?.look ?? {};
+              const own = (it) => it.price <= 0 || owned.has(it.id);
+              const formPreset = avPresets.find((p) => p.id === avForm.preset)
+                || avPresets.find((p) => p.gender === avForm.gender && p.is_active) || {};
+              return (
+                <>
+                  <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>👗 সাজ-সজ্জা</h2>
+                  <div className="coinbar">🪙 {coins}</div>
+                  {(!mine || avEdit) ? (
+                    <div className="glass">
+                      <div className="muted">আপনার অ্যাভাটার বানান</div>
+                      <div>
+                        {[['female', '♀️ নারী'], ['male', '♂️ পুরুষ']].map(([k, l]) => (
+                          <button key={k} className={'pill' + (avForm.gender === k ? ' on' : '')} onClick={() => setAvForm({ ...avForm, gender: k, preset: null })}>{l}</button>
+                        ))}
+                      </div>
+                      <Avatar gender={avForm.gender} body={formPreset} skin={avForm.skin} hairStyle={avForm.hairStyle} hairColor={avForm.hairColor} width={170} />
+                      <div className="muted">দেহের গড়ন</div>
+                      <div>
+                        {avPresets.filter((p) => p.gender === avForm.gender && p.is_active).map((p) => (
+                          <button key={p.id} className={'pill' + (formPreset.id === p.id ? ' on' : '')} onClick={() => setAvForm({ ...avForm, preset: p.id })}>{p.name}</button>
+                        ))}
+                      </div>
+                      <div className="muted">ত্বকের রং</div>
+                      <div>{SKINS.map((c) => <button key={c} className={'sw' + (avForm.skin === c ? ' on' : '')} style={{ background: c }} onClick={() => setAvForm({ ...avForm, skin: c })} />)}</div>
+                      <div className="muted">চুল</div>
+                      <div>
+                        {HAIR_STYLES.map(([k, l]) => (
+                          <button key={k} className={'pill' + (avForm.hairStyle === k ? ' on' : '')} onClick={() => setAvForm({ ...avForm, hairStyle: k })}>{l}</button>
+                        ))}
+                      </div>
+                      <div>{HAIR_COLORS.map((c) => <button key={c} className={'sw' + (avForm.hairColor === c ? ' on' : '')} style={{ background: c }} onClick={() => setAvForm({ ...avForm, hairColor: c })} />)}</div>
+                      <button className="btn big" onClick={saveProfile} disabled={gbusy}>✅ সেভ করুন</button>
+                      {mine && <button className="btn ghost" onClick={() => setAvEdit(false)}>বাতিল</button>}
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <button className={'pill' + (avWho === 'me' ? ' on' : '')} onClick={() => { setAvWho('me'); setDraft(null); }}>আমি</button>
+                        <button className={'pill' + (avWho === 'partner' ? ' on' : '')} disabled={!theirs} onClick={() => { setAvWho('partner'); setDraft(null); }}>
+                          পার্টনার{!theirs ? ' (অ্যাভাটার নেই)' : ''}
+                        </button>
+                      </div>
+                      {target ? (
+                        <div className="avstage">
+                          <Avatar gender={target.gender} body={avBody(target)} skin={target.skin} hairStyle={target.hair_style} hairColor={target.hair_color} outfit={avOutfit(look)} width={230} />
+                        </div>
+                      ) : <p className="muted">পার্টনার অ্যাভাটার বানালে এখানে দেখা যাবে</p>}
+                      {target && (
+                        <>
+                          <div>
+                            {draft && (
+                              <button className="btn go" disabled={gbusy} onClick={() => saveLook(tId, draft)}>
+                                {avWho === 'me' ? '✅ সাজ সেভ করুন' : '💝 পার্টনারকে সাজিয়ে দিন'}
+                              </button>
+                            )}
+                            {draft && <button className="btn ghost tiny" onClick={() => setDraft(null)}>↺ বাতিল</button>}
+                            <button className="btn ghost tiny" onClick={() => setDraft({})}>👙 ডিফল্ট সাজ</button>
+                            {avWho === 'me' && <button className="btn ghost tiny" onClick={startEditAvatar}>✏️ অ্যাভাটার বদলান</button>}
+                          </div>
+                          <div className="h3">🎭 থিম সেট</div>
+                          <div className="avrow">
+                            {avSets.filter((st) => st.is_active && (st.gender === 'any' || st.gender === target.gender)).map((st) => (
+                              <button key={st.id} className="pill" onClick={() => applySet(st)}>{st.emoji} {st.name}</button>
+                            ))}
+                          </div>
+                          <div className="h3">🧥 আইটেম</div>
+                          <div>
+                            {Object.entries(SLOTS).map(([k, l]) => (
+                              <button key={k} className={'pill' + (avSlot === k ? ' on' : '')} onClick={() => setAvSlot(k)}>{l}</button>
+                            ))}
+                          </div>
+                          <div className="ggrid">
+                            {avItems.filter((it) => it.is_active && it.slot === avSlot && (it.gender === 'any' || it.gender === target.gender)).map((it) => {
+                              const on = look[it.slot] === it.id;
+                              const ok = own(it);
+                              return (
+                                <div key={it.id} className="gwrap">
+                                  <button className={'itile r' + it.level + (on ? ' eq' : '')} onClick={() => (ok ? setDraft(toggleLook(look, it)) : buyItem(it))}>
+                                    <span className="sw" style={{ background: it.color, cursor: 'inherit' }} />
+                                    <b>{it.name}</b>
+                                    <small>{on ? '✓ পরা আছে' : ok ? 'পরুন' : `🔒 কিনুন · 🪙 ${it.price}`}</small>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
             {tab === 'history' && (
               <>
