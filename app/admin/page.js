@@ -63,6 +63,64 @@ const PEMPTY = { gender: 'female', name: '', bust: 60, waist: 40, hips: 65, bell
 const IEMPTY = { name: '', slot: 'top', shape: 'crop_top', color: '#ff3d7f', gender: 'female', level: 1, price: 20, image_url: '' };
 const SEMPTY = { name: '', emoji: '👗', gender: 'female', look: {} };
 
+
+// ================= নেভিগেশন (মূল ট্যাব → উপ-ট্যাব) =================
+// 'avatar:xxx' মানে অ্যাভাটার সেকশনের ভেতরের উপ-ট্যাব
+const NAV = [
+  { key: 'home', icon: '🏠', label: 'ড্যাশবোর্ড', desc: 'পুরো অ্যাপের এক নজরে অবস্থা, আর কোন কাজ বাকি তার তালিকা।',
+    subs: [['home', '📊 ওভারভিউ']] },
+  { key: 'games', icon: '🎮', label: 'গেম', desc: 'ডাইস, চাকা আর কার্ড/ট্রুথ/ডেয়ারের কনটেন্ট এখান থেকে নিয়ন্ত্রণ করুন।',
+    subs: [['dice', '🎲 ডাইস বক্স'], ['wheel', '🎡 ইচ্ছার চাকা'], ['all', '📋 কার্ড · ট্রুথ · ডেয়ার']] },
+  { key: 'gifts', icon: '🎁', label: 'গিফট', desc: 'গিফট কার্ড, মিস্ট্রি বক্স, কয়েনের নিয়ম আর ইউজারকে সরাসরি উপহার দেওয়া।',
+    subs: [['gifts', '🎴 গিফট কার্ড'], ['coins', '🪙 কয়েন ও উপহার']] },
+  { key: 'avatar', icon: '👗', label: 'অ্যাভাটার', desc: 'মডেলের শরীরের গড়ন, পোশাক, থিম সেট আর ইউজারকে পোশাক উপহার।',
+    subs: [['avatar:presets', '🧍 বডি গড়ন'], ['avatar:items', '👙 পোশাক'], ['avatar:sets', '🎭 থিম সেট'], ['avatar:give', '👑 উপহার']] },
+  { key: 'settings', icon: '⚙️', label: 'সেটিংস', desc: 'অ্যাপজুড়ে ব্যবহৃত লেভেলের নাম ও আইকন।',
+    subs: [['levels', '🏷️ লেভেল নাম']] },
+];
+
+const ADM_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+.adm{font-family:'Hind Siliguri',system-ui,sans-serif;color:#f5ecd7;min-height:100vh;-webkit-font-smoothing:antialiased}
+.adm *{box-sizing:border-box}
+.adm a{color:inherit;text-decoration:none}
+.adm h3{font-size:16px;font-weight:700;color:#f2d98a;margin:24px 0 8px;letter-spacing:.01em}
+.adm input:focus,.adm select:focus,.adm textarea:focus{outline:none;border-color:#d4af37 !important;box-shadow:0 0 0 3px rgba(212,175,55,.22)}
+.adm select option{background:#1a0d22;color:#f5ecd7}
+.adm input[type=range]{accent-color:#d4af37}
+.adm button{font-family:inherit;transition:transform .12s,filter .15s}
+.adm button:hover:not(:disabled){filter:brightness(1.1)}
+.adm button:active:not(:disabled){transform:scale(.97)}
+.adm button:disabled{opacity:.5;cursor:not-allowed}
+.adm small{color:#c9a5b4}
+.adm-head{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:linear-gradient(180deg,rgba(28,6,30,.96),rgba(14,3,18,.9));-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid rgba(212,175,55,.25);box-shadow:0 8px 28px rgba(0,0,0,.45)}
+.adm-logo{display:flex;align-items:center;gap:10px}
+.adm-logo .mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:linear-gradient(135deg,#f6e3a1,#d4af37);box-shadow:0 0 18px -4px #d4af37}
+.adm-logo b{display:block;font-size:18px;line-height:1.1;background:linear-gradient(90deg,#f6e3a1,#d4af37,#ffb6cf);-webkit-background-clip:text;background-clip:text;color:transparent}
+.adm-logo span{font-size:11px;letter-spacing:.18em;color:#c9a5b4}
+.adm-back{padding:8px 14px;border-radius:999px;border:1px solid rgba(212,175,55,.45);font-size:13px;font-weight:600;color:#f2d98a;background:rgba(212,175,55,.08)}
+.adm-main{display:flex;gap:8px;overflow-x:auto;padding:12px 14px 4px;scrollbar-width:none;max-width:860px;margin:0 auto}
+.adm-main::-webkit-scrollbar,.adm-sub::-webkit-scrollbar{display:none}
+.adm-main button{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:78px;padding:9px 10px 8px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#eadfcb;font-size:13px;font-weight:600;cursor:pointer}
+.adm-main button .i{font-size:24px;line-height:1.1}
+.adm-main button.on{background:linear-gradient(160deg,#f6e3a1,#d4af37);color:#2a1b05;border-color:#d4af37;box-shadow:0 8px 22px -6px rgba(212,175,55,.7)}
+.adm-sub{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 2px;scrollbar-width:none;max-width:860px;margin:0 auto}
+.adm-sub button{flex:0 0 auto;padding:7px 15px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#d9c9b0;font-size:13px;font-weight:600;cursor:pointer}
+.adm-sub button.on{border-color:#d4af37;color:#f2d98a;background:rgba(212,175,55,.14)}
+.adm-desc{margin:10px 0 4px;padding:11px 14px;border-radius:14px;border-left:3px solid #d4af37;background:rgba(212,175,55,.07);font-size:13px;color:#e6d6b8;line-height:1.55}
+.adm-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.adm-stat{text-align:left;padding:14px;border-radius:18px;border:1px solid rgba(212,175,55,.22);background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));color:#f5ecd7;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.35)}
+.adm-stat .ico{font-size:26px}
+.adm-stat .num{font-size:28px;font-weight:700;color:#f2d98a;line-height:1.1;margin-top:4px}
+.adm-stat .num small{font-size:13px;color:#c9a5b4;font-weight:500}
+.adm-stat .lab{font-size:13px;color:#e6d6b8;margin-top:2px}
+.adm-quick{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.adm-warn{padding:10px 14px;border-radius:14px;margin:6px 0;font-size:14px;background:rgba(255,160,60,.1);border:1px solid rgba(255,160,60,.35);color:#ffd9a0}
+.adm-ok{padding:12px 14px;border-radius:14px;font-size:14px;background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.35);color:#b9f3d3}
+.adm-toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:50;max-width:92vw;padding:12px 18px;border-radius:999px;font-size:14px;font-weight:600;color:#2a1b05;background:linear-gradient(135deg,#f6e3a1,#d4af37);box-shadow:0 12px 34px rgba(0,0,0,.55);cursor:pointer;animation:admpop .25s ease}
+@keyframes admpop{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+`;
+
 // ছবি ছোট করে JPEG বানায় (ফ্রি স্টোরেজ বাঁচাতে + দ্রুত লোডের জন্য)
 const shrink = (file) => new Promise((res, rej) => {
   const img = new Image();
@@ -91,7 +149,7 @@ export default function Admin() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState('dice');
+  const [view, setView] = useState('home');
   const [wf, setWf] = useState({ label: '', detail: '', level: 1, seconds: 0 });
   const [wLevel, setWLevel] = useState(1);
   const [diceG, setDiceG] = useState('any');
@@ -117,6 +175,13 @@ export default function Admin() {
   const [aSets, setASets] = useState([]);
   const [stf, setStf] = useState(SEMPTY);
   const [giveItem, setGiveItem] = useState({ email: '', item: '' });
+
+  // মেসেজ কিছুক্ষণ পর নিজে থেকে মুছে যাবে
+  useEffect(() => {
+    if (!msg) return undefined;
+    const t = setTimeout(() => setMsg(''), 5000);
+    return () => clearTimeout(t);
+  }, [msg]);
 
   const load = async () => {
     const { data } = await supabase.from('activities').select('*').order('id');
@@ -445,31 +510,147 @@ export default function Admin() {
     load();
   };
 
-  const box = { maxWidth: 480, margin: '0 auto', padding: 20 };
-  const inp = { width: '100%', padding: 12, margin: '6px 0', borderRadius: 8, border: 'none', boxSizing: 'border-box', fontSize: 16 };
-  const btn = { padding: '10px 16px', margin: 4, borderRadius: 8, border: 'none', background: '#e94560', color: '#fff', fontSize: 15 };
-  const chip = (on) => ({ ...btn, padding: '6px 12px', fontSize: 13, background: on ? '#e94560' : '#333' });
-  const lbl = { fontSize: 13, color: '#aaa', marginTop: 8, display: 'block' };
+  const page = {
+    background: 'radial-gradient(circle at 12% 0%, #3d0b3a 0, transparent 42%), radial-gradient(circle at 92% 18%, #2a0a3e 0, transparent 38%), radial-gradient(circle at 50% 110%, #4a0f1c 0, transparent 50%), #0b0210',
+  };
+  const box = { maxWidth: 760, margin: '0 auto', padding: '8px 14px 96px' };
+  const inp = {
+    width: '100%', padding: '11px 13px', margin: '6px 0', borderRadius: 12, border: '1px solid rgba(255,255,255,.14)',
+    background: 'rgba(0,0,0,.38)', color: '#f5ecd7', boxSizing: 'border-box', fontSize: 16, fontFamily: 'inherit',
+  };
+  const btn = {
+    padding: '10px 18px', margin: 4, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#ff3d7f,#7a1fa2)',
+    color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 6px 18px rgba(0,0,0,.35)',
+  };
+  const chip = (on) => ({
+    padding: '7px 14px', margin: 3, borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+    border: on ? '1px solid #d4af37' : '1px solid rgba(255,255,255,.14)',
+    background: on ? 'linear-gradient(135deg,#f6e3a1,#d4af37)' : 'rgba(255,255,255,.06)',
+    color: on ? '#2a1b05' : '#eadfcb',
+  });
+  const lbl = { fontSize: 13, color: '#c9a5b4', marginTop: 10, display: 'block' };
 
-  if (ok === null) return <div style={box}>লোড হচ্ছে...</div>;
-  if (!ok) return <div style={box}>শুধু অ্যাডমিন ঢুকতে পারবে। <a href="/" style={{ color: '#ffd369' }}>হোমে যান</a></div>;
+  if (ok === null) return (
+    <div className="adm" style={{ ...page, display: 'grid', placeItems: 'center' }}>
+      <style>{ADM_CSS}</style>
+      <div style={{ textAlign: 'center' }}><div style={{ fontSize: 40 }}>⚙️</div><div style={{ color: '#f2d98a' }}>লোড হচ্ছে...</div></div>
+    </div>
+  );
+  if (!ok) return (
+    <div className="adm" style={{ ...page, display: 'grid', placeItems: 'center', padding: 20 }}>
+      <style>{ADM_CSS}</style>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 44 }}>🔒</div>
+        <p>শুধু অ্যাডমিন ঢুকতে পারবে।</p>
+        <a href="/" className="adm-back">← হোমে যান</a>
+      </div>
+    </div>
+  );
 
   const shown = list.filter((a) => filter === 'all' || a.kind === filter);
   const boxItems = (kind) => list.filter((a) => a.kind === kind && (a.gender || 'any') === diceG);
   const lvName = (n) => `${levels[n]?.icon || ''} ${levels[n]?.name || 'লেভেল ' + n}`;
-  const panel = { background: '#16213e', padding: 12, borderRadius: 12, margin: '10px 0' };
+  const panel = {
+    background: 'linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02))', border: '1px solid rgba(212,175,55,.2)',
+    padding: 16, borderRadius: 18, margin: '12px 0', boxShadow: '0 10px 30px rgba(0,0,0,.35)',
+  };
+
+  // নেভিগেশন হেল্পার
+  const isOn = (k) => (k.startsWith('avatar:') ? view === 'avatar' && aview === k.slice(7) : view === k);
+  const curSection = NAV.find((s) => s.subs.some(([k]) => isOn(k))) || NAV[0];
+  const go = (k) => {
+    if (k.startsWith('avatar:')) { setView('avatar'); setAview(k.slice(7)); } else setView(k);
+    setMsg('');
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const levelOptions = Object.keys(DEF_LEVELS).map((k) => <option key={k} value={k}>{lvName(k)}</option>);
 
   return (
-    <div style={box}>
-      <h2>⚙️ অ্যাডমিন প্যানেল</h2>
-      <a href="/" style={{ color: '#ffd369' }}>← হোম</a>
+    <div className="adm" style={page}>
+      <style>{ADM_CSS}</style>
 
-      <div style={{ margin: '10px 0' }}>
-        {[['dice', '🎲 ডাইস বক্স'], ['wheel', '🎡 চাকা'], ['gifts', '🎁 গিফট'], ['avatar', '👗 অ্যাভাটার'], ['levels', '🏷️ লেভেল নাম'], ['all', '📋 সব অ্যাক্টিভিটি']].map(([k, l]) =>
-          <button key={k} style={chip(view === k)} onClick={() => { setView(k); setMsg(''); }}>{l}</button>)}
-      </div>
-      {msg && view !== 'all' && <p style={{ color: '#ffd369' }}>{msg}</p>}
+      <header className="adm-head">
+        <div className="adm-logo">
+          <div className="mark">💋</div>
+          <div><b>Dice App</b><span>অ্যাডমিন কন্ট্রোল</span></div>
+        </div>
+        <a href="/" className="adm-back">← অ্যাপে ফিরুন</a>
+      </header>
+
+      <nav className="adm-main" aria-label="মূল ট্যাব">
+        {NAV.map((s) => (
+          <button key={s.key} className={curSection.key === s.key ? 'on' : ''} onClick={() => go(s.subs[0][0])}>
+            <span className="i">{s.icon}</span>{s.label}
+          </button>
+        ))}
+      </nav>
+      {curSection.subs.length > 1 && (
+        <nav className="adm-sub" aria-label="উপ ট্যাব">
+          {curSection.subs.map(([k, l]) => (
+            <button key={k} className={isOn(k) ? 'on' : ''} onClick={() => go(k)}>{l}</button>
+          ))}
+        </nav>
+      )}
+
+      <div style={box}>
+      <div className="adm-desc">{curSection.icon} <b>{curSection.label}</b> · {curSection.desc}</div>
+
+      {view === 'home' && (() => {
+        const act = (arr) => arr.filter((x) => x.is_active !== false).length;
+        const dice = list.filter((x) => x.kind === 'action' || x.kind === 'modifier');
+        const td = list.filter((x) => x.kind === 'truth' || x.kind === 'dare');
+        const cards = list.filter((x) => x.kind === 'card');
+        const wheel = list.filter((x) => x.kind === 'wheel');
+        const stats = [
+          ['🎲', 'ডাইস অপশন', dice, 'dice'], ['🎡', 'চাকার সেগমেন্ট', wheel, 'wheel'],
+          ['💬', 'ট্রুথ · ডেয়ার', td, 'all'], ['🃏', 'কার্ড', cards, 'all'],
+          ['🎁', 'গিফট কার্ড', gifts, 'gifts'], ['👙', 'পোশাক', aItems, 'avatar:items'],
+          ['🧍', 'বডি গড়ন', presets, 'avatar:presets'], ['🎭', 'থিম সেট', aSets, 'avatar:sets'],
+        ];
+        const warn = [];
+        [1, 2, 3].forEach((n) => {
+          const c = wheel.filter((x) => x.level === n && x.is_active).length;
+          if (c < 3) warn.push(['wheel', `🎡 চাকা · ${lvName(n)}: ${c}টি সেগমেন্ট আছে (কমপক্ষে ৩টি দরকার)`]);
+        });
+        [1, 2, 3].forEach((n) => {
+          if (!gifts.some((g) => g.kind === 'gift' && g.level === n && g.is_active)) warn.push(['gifts', `🎁 ${lvName(n)} লেভেলে কোনো গিফট কার্ড নেই`]);
+        });
+        if (!gifts.some((g) => g.kind === 'mystery' && g.is_active)) warn.push(['gifts', '❓ কোনো মিস্ট্রি বক্স নেই']);
+        ['action', 'modifier'].forEach((k) => {
+          if (!list.some((x) => x.kind === k && x.is_active)) warn.push(['dice', `🎲 ডাইসের "${KINDS[k]}" বক্স খালি`]);
+        });
+        if (aItems.length === 0) warn.push(['avatar:items', '👙 এখনো কোনো পোশাক যোগ হয়নি']);
+        if (presets.length === 0) warn.push(['avatar:presets', '🧍 এখনো কোনো বডি গড়ন (প্রিসেট) নেই']);
+        return (
+          <>
+            <div className="adm-stats">
+              {stats.map(([ico, lab, arr, key]) => (
+                <button key={lab} className="adm-stat" onClick={() => go(key)}>
+                  <div className="ico">{ico}</div>
+                  <div className="num">{act(arr)}<small> / {arr.length}</small></div>
+                  <div className="lab">{lab}</div>
+                </button>
+              ))}
+            </div>
+            <small>সংখ্যা = চালু / মোট। কার্ডে চাপলে সেই সেকশনে যাবে।</small>
+
+            <h3>⚡ দ্রুত কাজ</h3>
+            <div className="adm-quick">
+              <button style={btn} onClick={() => go('gifts')}>➕ গিফট কার্ড</button>
+              <button style={btn} onClick={() => go('wheel')}>🎡 চাকা এডিট</button>
+              <button style={btn} onClick={() => go('coins')}>🪙 কয়েন দিন</button>
+              <button style={btn} onClick={() => go('avatar:items')}>👙 পোশাক যোগ</button>
+            </div>
+
+            <h3>✅ প্রস্তুতি যাচাই</h3>
+            {warn.length === 0
+              ? <div className="adm-ok">সব ঠিক আছে, কোনো কাজ বাকি নেই 🎉</div>
+              : warn.map(([key, t], i) => (
+                <div key={i} className="adm-warn" style={{ cursor: 'pointer' }} onClick={() => go(key)}>{t} →</div>
+              ))}
+          </>
+        );
+      })()}
 
       {view === 'dice' && (
         <>
@@ -482,7 +663,7 @@ export default function Admin() {
           </div>
           {BOXES.map(([kind, title, hint]) => (
             <div key={kind} style={panel}>
-              <div style={{ fontSize: 17 }}>{title} ({boxItems(kind).length})</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>{title} ({boxItems(kind).length})</div>
               <small style={{ color: '#aaa' }}>{hint}</small>
               <div style={{ margin: '8px 0' }}>
                 <input
@@ -502,13 +683,13 @@ export default function Admin() {
                 <button style={btn} onClick={() => quickAdd(kind)}>➕ বক্সে যোগ করুন</button>
               </div>
               {boxItems(kind).map((a) => (
-                <div key={a.id} style={{ background: '#0f1a33', padding: 10, borderRadius: 8, margin: '6px 0', opacity: a.is_active ? 1 : 0.5 }}>
+                <div key={a.id} style={{ background: 'rgba(0,0,0,.35)', padding: 10, borderRadius: 8, margin: '6px 0', opacity: a.is_active ? 1 : 0.5 }}>
                   <div style={{ fontSize: 16 }}>{a.title}</div>
                   <small>{lvName(a.level)} · {a.is_active ? 'চালু' : 'বন্ধ'}</small>
                   <div>
-                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(a)}>এডিট</button>
-                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
-                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => del(a)}>মুছুন</button>
+                    <button style={{ ...btn, background: '#35507a', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(a)}>এডিট</button>
+                    <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => del(a)}>মুছুন</button>
                   </div>
                 </div>
               ))}
@@ -518,10 +699,12 @@ export default function Admin() {
         </>
       )}
 
-      {view === 'gifts' && (
+      {(view === 'gifts' || view === 'coins') && (
         <>
+          {view === 'gifts' && (
+          <>
           <div style={panel}>
-            <div style={{ fontSize: 17 }}>{gEditId ? '✏️ গিফট এডিট' : '➕ নতুন গিফট কার্ড'}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>{gEditId ? '✏️ গিফট এডিট' : '➕ নতুন গিফট কার্ড'}</div>
             <label style={lbl}>ধরন</label>
             <select style={inp} value={gf.kind} onChange={(e) => setG('kind', e.target.value)}>
               <option value="gift">🎁 সাধারণ গিফট কার্ড</option>
@@ -544,16 +727,21 @@ export default function Admin() {
             {(gPrev || gf.image_url) && (
               <div>
                 <img src={gPrev || gf.image_url} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, margin: '6px 0' }} />
-                <button style={{ ...btn, background: '#8b1e2d' }} onClick={() => { setGFile(null); setGPrev(''); setG('image_url', ''); }}>ছবি সরান</button>
+                <button style={{ ...btn, background: '#7d1d3a' }} onClick={() => { setGFile(null); setGPrev(''); setG('image_url', ''); }}>ছবি সরান</button>
               </div>
             )}
-            <input style={{ ...inp, background: '#0f1a33', color: '#fff' }} type="file" accept="image/*" onChange={pickGiftFile} />
+            <input style={{ ...inp, background: 'rgba(0,0,0,.35)', color: '#fff' }} type="file" accept="image/*" onChange={pickGiftFile} />
             <button style={btn} onClick={saveGift} disabled={busy}>{busy ? 'অপেক্ষা করুন...' : gEditId ? 'সেভ করুন' : 'যোগ করুন'}</button>
-            {gEditId && <button style={{ ...btn, background: '#555' }} onClick={resetGift}>বাতিল</button>}
+            {gEditId && <button style={{ ...btn, background: '#3a3340' }} onClick={resetGift}>বাতিল</button>}
           </div>
 
+          </>
+          )}
+
+          {view === 'coins' && (
+          <>
           <div style={panel}>
-            <div style={{ fontSize: 17 }}>🪙 হ্যাঁ দিলে কত কয়েন (লেভেল অনুযায়ী)</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>🪙 হ্যাঁ দিলে কত কয়েন (লেভেল অনুযায়ী)</div>
             {rules.map((r, i) => (
               <div key={r.level}>
                 <label style={lbl}>{lvName(r.level)}</label>
@@ -565,7 +753,7 @@ export default function Admin() {
           </div>
 
           <div style={panel}>
-            <div style={{ fontSize: 17 }}>👑 ইউজারকে কয়েন/গিফট দিন</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>👑 ইউজারকে কয়েন/গিফট দিন</div>
             <input style={inp} placeholder="ইউজারের ইমেইল" value={giveF.email} onChange={(e) => setGiveF((p) => ({ ...p, email: e.target.value }))} />
             <label style={lbl}>কয়েন (মাইনাস দিলে কাটা যাবে)</label>
             <input style={inp} type="number" value={giveF.coins} onChange={(e) => setGiveF((p) => ({ ...p, coins: e.target.value }))} />
@@ -579,38 +767,41 @@ export default function Admin() {
             <button style={btn} onClick={giveToUser}>🎁 দিন</button>
           </div>
 
+          </>
+          )}
+
+          {view === 'gifts' && (
+          <>
           <h3>সব গিফট কার্ড ({gifts.length})</h3>
           {gifts.map((g) => (
             <div key={g.id} style={{ ...panel, opacity: g.is_active ? 1 : 0.5 }}>
               {g.image_url
                 ? <img src={g.image_url} alt="" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8, float: 'right', marginLeft: 8 }} />
                 : <div style={{ fontSize: 44, float: 'right', marginLeft: 8 }}>{g.emoji}</div>}
-              <div style={{ fontSize: 17 }}>{g.name}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>{g.name}</div>
               <small>
                 {g.kind === 'mystery' ? '❓ মিস্ট্রি বক্স' : `${lvName(g.level)} · ⭐ ${g.points}`} · 🪙 {g.price} · {g.is_active ? 'চালু' : 'বন্ধ'}
               </small>
               <div>
-                <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => editGift(g)}>এডিট</button>
-                <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleGift(g)}>{g.is_active ? 'বন্ধ' : 'চালু'}</button>
-                <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delGift(g)}>মুছুন</button>
+                <button style={{ ...btn, background: '#35507a', padding: '6px 12px', fontSize: 13 }} onClick={() => editGift(g)}>এডিট</button>
+                <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleGift(g)}>{g.is_active ? 'বন্ধ' : 'চালু'}</button>
+                <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => delGift(g)}>মুছুন</button>
               </div>
             </div>
           ))}
+          </>
+          )}
         </>
       )}
 
       {view === 'avatar' && (
         <>
-          <div>
-            {[['presets', '🧍 বডি গড়ন'], ['items', '👙 পোশাক'], ['sets', '🎭 থিম সেট'], ['give', '👑 আইটেম দিন']].map(([k, l]) =>
-              <button key={k} style={chip(aview === k)} onClick={() => { setAview(k); setMsg(''); }}>{l}</button>)}
-          </div>
 
           {aview === 'presets' && (
             <>
               <p style={{ fontSize: 13, color: '#aaa' }}>প্রতিটি প্রিসেটে স্লাইডার (০–১০০) দিয়ে গড়ন ঠিক করুন। ইউজাররা এখান থেকে নিজের গড়ন বাছবে। প্রিভিউ সাথে সাথে বদলায়।</p>
               <div style={panel}>
-                <div style={{ fontSize: 17 }}>{pEditId ? '✏️ প্রিসেট এডিট' : '➕ নতুন প্রিসেট'}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>{pEditId ? '✏️ প্রিসেট এডিট' : '➕ নতুন প্রিসেট'}</div>
                 <Avatar gender={pf.gender} body={pf} width={150} />
                 <select style={inp} value={pf.gender} onChange={(e) => setPf({ ...pf, gender: e.target.value })}>
                   <option value="female">♀️ নারী</option>
@@ -624,16 +815,16 @@ export default function Admin() {
                   </div>
                 ))}
                 <button style={btn} onClick={savePreset}>{pEditId ? 'সেভ করুন' : 'যোগ করুন'}</button>
-                {pEditId && <button style={{ ...btn, background: '#555' }} onClick={() => { setPf(PEMPTY); setPEditId(null); }}>বাতিল</button>}
+                {pEditId && <button style={{ ...btn, background: '#3a3340' }} onClick={() => { setPf(PEMPTY); setPEditId(null); }}>বাতিল</button>}
               </div>
               {presets.map((b) => (
                 <div key={b.id} style={{ ...panel, opacity: b.is_active ? 1 : 0.5 }}>
                   <div style={{ fontSize: 16 }}>{b.gender === 'male' ? '♂️' : '♀️'} {b.name}</div>
                   <small>বক্ষ {b.bust} · কোমর {b.waist} · পেট {b.belly} · নিতম্ব {b.hips} · উরু {b.thighs}</small>
                   <div>
-                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => editPreset(b)}>এডিট</button>
-                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => togglePreset(b)}>{b.is_active ? 'বন্ধ' : 'চালু'}</button>
-                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delPreset(b)}>মুছুন</button>
+                    <button style={{ ...btn, background: '#35507a', padding: '6px 12px', fontSize: 13 }} onClick={() => editPreset(b)}>এডিট</button>
+                    <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => togglePreset(b)}>{b.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => delPreset(b)}>মুছুন</button>
                   </div>
                 </div>
               ))}
@@ -643,7 +834,7 @@ export default function Admin() {
           {aview === 'items' && (
             <>
               <div style={panel}>
-                <div style={{ fontSize: 17 }}>{iEditId ? '✏️ আইটেম এডিট' : '➕ নতুন পোশাক/আইটেম'}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>{iEditId ? '✏️ আইটেম এডিট' : '➕ নতুন পোশাক/আইটেম'}</div>
                 <Avatar gender={itf.gender === 'male' ? 'male' : 'female'} body={itf.gender === 'male' ? { bust: 80, waist: 40, hips: 45, belly: 15, thighs: 55 } : { bust: 75, waist: 35, hips: 80, belly: 30, thighs: 70 }} outfit={{ [itf.slot]: itf }} width={150} />
                 <input style={inp} placeholder="নাম" value={itf.name} onChange={(e) => setItem('name', e.target.value)} />
                 <label style={lbl}>জায়গা</label>
@@ -665,10 +856,10 @@ export default function Admin() {
                 <label style={lbl}>দাম (কয়েন, ০ = সবার জন্য ফ্রি)</label>
                 <input style={inp} type="number" min="0" value={itf.price} onChange={(e) => setItem('price', e.target.value)} />
                 <label style={lbl}>নিজের ছবি (ঐচ্ছিক): ২০০×৪২৪ আকারের স্বচ্ছ PNG লেয়ার দিলে উপরের আকৃতির বদলে এটা দেখাবে</label>
-                {itf.image_url && <div><small style={{ color: '#aaa' }}>ছবি আছে</small> <button style={{ ...btn, background: '#8b1e2d', padding: '4px 10px', fontSize: 12 }} onClick={() => setItem('image_url', '')}>সরান</button></div>}
-                <input style={{ ...inp, background: '#0f1a33', color: '#fff' }} type="file" accept="image/*" onChange={(e) => setIFile(e.target.files?.[0] || null)} />
+                {itf.image_url && <div><small style={{ color: '#aaa' }}>ছবি আছে</small> <button style={{ ...btn, background: '#7d1d3a', padding: '4px 10px', fontSize: 12 }} onClick={() => setItem('image_url', '')}>সরান</button></div>}
+                <input style={{ ...inp, background: 'rgba(0,0,0,.35)', color: '#fff' }} type="file" accept="image/*" onChange={(e) => setIFile(e.target.files?.[0] || null)} />
                 <button style={btn} onClick={saveItem} disabled={busy}>{busy ? 'অপেক্ষা করুন...' : iEditId ? 'সেভ করুন' : 'যোগ করুন'}</button>
-                {iEditId && <button style={{ ...btn, background: '#555' }} onClick={() => { setItf(IEMPTY); setIEditId(null); setIFile(null); }}>বাতিল</button>}
+                {iEditId && <button style={{ ...btn, background: '#3a3340' }} onClick={() => { setItf(IEMPTY); setIEditId(null); setIFile(null); }}>বাতিল</button>}
               </div>
               <h3>সব আইটেম ({aItems.length})</h3>
               {aItems.map((a) => (
@@ -677,9 +868,9 @@ export default function Admin() {
                   <span style={{ fontSize: 16 }}>{a.name}</span><br />
                   <small>{SLOTS[a.slot]} · {GENDERS[a.gender]} · {lvName(a.level)} · 🪙 {a.price}{a.image_url ? ' · 🖼️' : ''} · {a.is_active ? 'চালু' : 'বন্ধ'}</small>
                   <div>
-                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => editItem(a)}>এডিট</button>
-                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleItem(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
-                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delItem(a)}>মুছুন</button>
+                    <button style={{ ...btn, background: '#35507a', padding: '6px 12px', fontSize: 13 }} onClick={() => editItem(a)}>এডিট</button>
+                    <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleItem(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => delItem(a)}>মুছুন</button>
                   </div>
                 </div>
               ))}
@@ -689,7 +880,7 @@ export default function Admin() {
           {aview === 'sets' && (
             <>
               <div style={panel}>
-                <div style={{ fontSize: 17 }}>➕ নতুন থিম সেট (এক চাপে পুরো লুক)</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>➕ নতুন থিম সেট (এক চাপে পুরো লুক)</div>
                 <input style={inp} placeholder="নাম, যেমন: বিচ নাইট" value={stf.name} onChange={(e) => setStf({ ...stf, name: e.target.value })} />
                 <input style={inp} placeholder="ইমোজি" value={stf.emoji} onChange={(e) => setStf({ ...stf, emoji: e.target.value })} />
                 <select style={inp} value={stf.gender} onChange={(e) => setStf({ ...stf, gender: e.target.value, look: {} })}>
@@ -711,8 +902,8 @@ export default function Admin() {
                   <div style={{ fontSize: 16 }}>{a.emoji} {a.name}</div>
                   <small>{GENDERS[a.gender]} · {Object.keys(a.look || {}).length}টি আইটেম · {a.is_active ? 'চালু' : 'বন্ধ'}</small>
                   <div>
-                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleSet(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
-                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => delSet(a)}>মুছুন</button>
+                    <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => toggleSet(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => delSet(a)}>মুছুন</button>
                   </div>
                 </div>
               ))}
@@ -721,7 +912,7 @@ export default function Admin() {
 
           {aview === 'give' && (
             <div style={panel}>
-              <div style={{ fontSize: 17 }}>👑 ইউজারকে পোশাক উপহার</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>👑 ইউজারকে পোশাক উপহার</div>
               <input style={inp} placeholder="ইউজারের ইমেইল" value={giveItem.email} onChange={(e) => setGiveItem({ ...giveItem, email: e.target.value })} />
               <select style={inp} value={giveItem.item} onChange={(e) => setGiveItem({ ...giveItem, item: e.target.value })}>
                 <option value="">— আইটেম বাছুন —</option>
@@ -745,18 +936,18 @@ export default function Admin() {
               {[1, 2, 3].map((n) => <button key={n} style={chip(Number(wLevel) === n)} onClick={() => { setWLevel(n); setWf((p) => ({ ...p, level: n })); }}>{lvName(n)}</button>)}
             </div>
             <div style={panel}>
-              <div style={{ fontSize: 17 }}>👀 প্রিভিউ ({active.length}টি চালু সেগমেন্ট)</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>👀 প্রিভিউ ({active.length}টি চালু সেগমেন্ট)</div>
               <div style={{ width: 240, height: 240, margin: '10px auto' }} dangerouslySetInnerHTML={{ __html: miniWheel(active.slice().sort((x, y) => x.id - y.id), Number(wLevel)) }} />
               {active.length < 3 && <small style={{ color: '#f2c078' }}>কমপক্ষে ৩টি সেগমেন্ট রাখুন</small>}
             </div>
             <div style={panel}>
-              <div style={{ fontSize: 17 }}>➕ নতুন সেগমেন্ট</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>➕ নতুন সেগমেন্ট</div>
               <input style={inp} placeholder="চাকায় যা দেখাবে (ছোট), যেমন: ম্যাসাজ" value={wf.label} onChange={(e) => setWf((p) => ({ ...p, label: e.target.value }))} />
               <input style={inp} placeholder="ফলাফলে যা দেখাবে, যেমন: ৫ মিনিট পিঠে ম্যাসাজ দিন" value={wf.detail} onChange={(e) => setWf((p) => ({ ...p, detail: e.target.value }))} />
               <label style={lbl}>টাইমার সেকেন্ড (০ = নেই)</label>
               <input style={inp} type="number" min="0" value={wf.seconds} onChange={(e) => setWf((p) => ({ ...p, seconds: e.target.value }))} />
               <button style={btn} onClick={addWheel}>➕ {lvName(wLevel)} চাকায় যোগ করুন</button>
-              <button style={{ ...btn, background: '#555' }} onClick={addWheelDefaults}>✨ ডিফল্ট ২৪টি যোগ করুন</button>
+              <button style={{ ...btn, background: '#3a3340' }} onClick={addWheelDefaults}>✨ ডিফল্ট ২৪টি যোগ করুন</button>
             </div>
             {segs.map((s) => {
               const p = wheelParts(s.title);
@@ -766,9 +957,9 @@ export default function Admin() {
                   {p.detail && <small style={{ color: '#ccc' }}>{p.detail}</small>}
                   <div><small>{s.seconds > 0 ? `${s.seconds}সে · ` : ''}{s.is_active ? 'চালু' : 'বন্ধ'}</small></div>
                   <div>
-                    <button style={{ ...btn, background: '#2a6f97', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(s)}>এডিট</button>
-                    <button style={{ ...btn, background: '#555', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(s)}>{s.is_active ? 'বন্ধ' : 'চালু'}</button>
-                    <button style={{ ...btn, background: '#8b1e2d', padding: '6px 12px', fontSize: 13 }} onClick={() => del(s)}>মুছুন</button>
+                    <button style={{ ...btn, background: '#35507a', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(s)}>এডিট</button>
+                    <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(s)}>{s.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => del(s)}>মুছুন</button>
                   </div>
                 </div>
               );
@@ -794,7 +985,8 @@ export default function Admin() {
 
       {view === 'all' && (
       <>
-      <h3>{editId ? '✏️ এডিট করুন' : 'নতুন অ্যাক্টিভিটি'}</h3>
+      <div style={panel}>
+      <h3 style={{ marginTop: 0 }}>{editId ? '✏️ এডিট করুন' : '➕ নতুন অ্যাক্টিভিটি'}</h3>
       <input style={inp} placeholder="লেখা, যেমন: পিঠে ম্যাসাজ" value={form.title} onChange={(e) => set('title', e.target.value)} />
 
       <label style={lbl}>ধরন</label>
@@ -830,16 +1022,16 @@ export default function Admin() {
           {(preview || form.image_url) && (
             <div>
               <img src={preview || form.image_url} alt="" style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 10, margin: '6px 0' }} />
-              <button style={{ ...btn, background: '#8b1e2d' }} onClick={removeImage}>ছবি সরান</button>
+              <button style={{ ...btn, background: '#7d1d3a' }} onClick={removeImage}>ছবি সরান</button>
             </div>
           )}
-          <input style={{ ...inp, background: '#16213e', color: '#fff' }} type="file" accept="image/*" onChange={pickFile} />
+          <input style={{ ...inp, background: 'rgba(255,255,255,.06)', color: '#fff' }} type="file" accept="image/*" onChange={pickFile} />
         </div>
       )}
 
       <button style={btn} onClick={save} disabled={busy}>{busy ? 'অপেক্ষা করুন...' : editId ? 'সেভ করুন' : 'যোগ করুন'}</button>
-      {editId && <button style={{ ...btn, background: '#555' }} onClick={cancel}>বাতিল</button>}
-      {msg && <p style={{ color: '#ffd369' }}>{msg}</p>}
+      {editId && <button style={{ ...btn, background: '#3a3340' }} onClick={cancel}>বাতিল</button>}
+      </div>
 
       <h3>সব অ্যাক্টিভিটি ({shown.length})</h3>
       <div>
@@ -849,7 +1041,7 @@ export default function Admin() {
       </div>
 
       {shown.map((a) => (
-        <div key={a.id} style={{ background: '#16213e', padding: 12, borderRadius: 10, margin: '8px 0', opacity: a.is_active ? 1 : 0.5 }}>
+        <div key={a.id} style={{ background: 'rgba(255,255,255,.06)', padding: 12, borderRadius: 10, margin: '8px 0', opacity: a.is_active ? 1 : 0.5 }}>
           {a.image_url && <img src={a.image_url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, float: 'right', marginLeft: 8 }} />}
           <div style={{ fontSize: 18 }}>{a.title}</div>
           <small>
@@ -858,14 +1050,17 @@ export default function Admin() {
             {a.seconds > 0 ? ` · ${a.seconds}সে` : ''} · {a.is_active ? 'চালু' : 'বন্ধ'}
           </small>
           <div>
-            <button style={{ ...btn, background: '#2a6f97' }} onClick={() => edit(a)}>এডিট</button>
-            <button style={{ ...btn, background: '#555' }} onClick={() => toggle(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
-            <button style={{ ...btn, background: '#8b1e2d' }} onClick={() => del(a)}>মুছুন</button>
+            <button style={{ ...btn, background: '#35507a' }} onClick={() => edit(a)}>এডিট</button>
+            <button style={{ ...btn, background: '#3a3340' }} onClick={() => toggle(a)}>{a.is_active ? 'বন্ধ' : 'চালু'}</button>
+            <button style={{ ...btn, background: '#7d1d3a' }} onClick={() => del(a)}>মুছুন</button>
           </div>
         </div>
       ))}
       </>
       )}
+      </div>
+
+      {msg && <div className="adm-toast" onClick={() => setMsg('')}>{msg}</div>}
     </div>
   );
 }
