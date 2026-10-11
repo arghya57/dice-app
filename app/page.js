@@ -22,16 +22,18 @@ const T = {
   dare:    { icon: '🔥', label: 'ডেয়ার',   color: '#ff4d2e', title: 'ডেয়ার',     desc: 'সাহস আছে? পিছিয়ে যাবেন না 😈', hero: '🔥😈', btn: '🔥 ডেয়ার নিন', stk: ['😈', '🥵', '💥', '🍑'] },
   wish:    { icon: '💭', label: 'উইশ',    color: '#ff7eb6', title: 'গোপন ইচ্ছা', desc: '', hero: '', btn: '', stk: ['🤫', '💌', '🌙'] },
   history: { icon: '⭐', label: 'হিস্ট্রি', color: '#ffd369', title: 'পছন্দ ও ইতিহাস', desc: '', hero: '', btn: '', stk: ['⭐', '💝', '🕰️'] },
+  wheel:   { icon: '🎡', label: 'চাকা',   color: '#d4af37', title: 'ইচ্ছার চাকা', desc: 'চাকা ঘুরান, ভাগ্যে কী আছে দেখুন ✨', hero: '', btn: '🎡 চাকা ঘোরান', stk: ['✨', '🔥', '💞'] },
   gifts:   { icon: '🎁', label: 'গিফট',   color: '#ff9f1c', title: 'গিফট ও কয়েন', desc: '', hero: '', btn: '', stk: ['🎁', '💝', '✨'] },
   avatar:  { icon: '👗', label: 'সাজ',   color: '#ff6ad5', title: 'সাজ-সজ্জা', desc: '', hero: '', btn: '', stk: ['👗', '💄', '👠'] },
   chat:    { icon: '🗨️', label: 'চ্যাট',   color: '#5ec8ff', title: 'রুম চ্যাট', desc: '', hero: '', btn: '', stk: ['💌', '😘', '🫶'] },
 };
-const GAME_TABS = ['dice', 'card', 'truth', 'dare'];
+const GAME_TABS = ['dice', 'card', 'truth', 'dare', 'wheel'];
 const HUB_TEXT = {
   dice: 'কী করবেন + কীভাবে, দুই ডাইসে',
   card: 'ঘুরন্ত ডেক থেকে একটা কার্ড',
   truth: 'সত্যি বলার খেলা',
   dare: 'সাহসের চ্যালেঞ্জ',
+  wheel: 'ইচ্ছার চাকা ঘুরিয়ে ভাগ্য দেখুন',
 };
 const QUICK_MSGS = ['😘 আমি রেডি', '⏳ একটু অপেক্ষা করো', '🔄 অন্যটা দাও', '💗 একটু বিরতি চাই', '🔥 আরও চাই'];
 const FLOATERS = [
@@ -44,7 +46,7 @@ const FLOATERS = [
 ];
 const HERO_STICKERS = [['💏', -12], ['😍', 8], ['👩‍❤️‍💋‍👨', -6], ['🫦', 12], ['💑', -10], ['😈', 6], ['💋', -8], ['🔥', 10]];
 
-const tabOfAct = (a) => (a?.kind === 'card' ? 'card' : a?.kind === 'truth' ? 'truth' : a?.kind === 'dare' ? 'dare' : 'dice');
+const tabOfAct = (a) => (a?.kind === 'card' ? 'card' : a?.kind === 'truth' ? 'truth' : a?.kind === 'dare' ? 'dare' : a?.kind === 'wheel' ? 'wheel' : 'dice');
 
 const urlB64ToUint8Array = (b64) => {
   const pad = '='.repeat((4 - (b64.length % 4)) % 4);
@@ -170,6 +172,10 @@ const CSS = `
 @keyframes drift{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-28px) rotate(10deg)}}
 @keyframes pop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes wob{0%,100%{transform:rotate(var(--r,0deg)) scale(1)}50%{transform:rotate(calc(var(--r,0deg) * -1)) scale(1.08)}}
+.wheelbox{position:relative;width:min(100%,340px);aspect-ratio:1/1;margin:14px auto;transition:transform .5s}
+.wheelbox.d3{transform:perspective(900px) rotateX(34deg) scale(.96);filter:drop-shadow(0 28px 22px rgba(0,0,0,.55))}
+.wheelbox .wslices,.wheelbox .wrim{position:absolute;inset:0}
+.wheelbox svg{width:100%;height:100%;display:block}
 @keyframes glow{0%,100%{box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 14px -6px #ffd369}50%{box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 30px 0 #ffd369}}
 `;
 
@@ -209,6 +215,10 @@ export default function Home() {
   const [levels, setLevels] = useState(DEF_LEVELS);
   const [gender, setGender] = useState('');
   const [spinning, setSpinning] = useState(false);
+  // ইচ্ছার চাকা
+  const [wheelHeat, setWheelHeat] = useState(1);
+  const [wheelRot, setWheelRot] = useState(0);
+  const [wheelView, setWheelView] = useState('3d');
   // গিফট সিস্টেম
   const [coins, setCoins] = useState(0);
   const [catalog, setCatalog] = useState([]);
@@ -512,11 +522,13 @@ export default function Home() {
     const b = list.find((x) => x.id === r.activity2_id) || null;
     setRollTab(tabOfAct(a));
     setRolling(true);
+    const isWheel = a?.kind === 'wheel';
+    if (isWheel) { setCur(null); spinWheelTo(a); }
     setTimeout(() => {
       setCur({ id: r.id, a, b, by: r.rolled_by });
       setSecs(a?.seconds || 0);
       setRolling(false);
-    }, 1200);
+    }, isWheel ? 4400 : 1200);
   };
 
   useEffect(() => {
@@ -769,6 +781,12 @@ export default function Home() {
     if (!myTurn) return { err: 'এখন পার্টনারের পালা, একটু অপেক্ষা করুন 💞' };
     if (!myGender) return { err: 'আগে আপনার লিঙ্গ বাছুন' };
     let a, b = null;
+    if (tab === 'wheel') {
+      if (wheelHeat > eff) return { err: 'এই হিট লেভেল দুজনের সম্মতির বাইরে। আগে "আমি রাজি আছি" মিলিয়ে নিন' };
+      const segs = acts.filter((x) => x.kind === 'wheel' && x.level === wheelHeat);
+      if (!segs.length) return { err: 'এই লেভেলে চাকার কোনো সেগমেন্ট নেই (অ্যাডমিন থেকে যোগ করুন)' };
+      return { a: segs[Math.floor(Math.random() * segs.length)], b: null };
+    }
     if (tab === 'dice') {
       if (!partnerGender) return { err: 'পার্টনার এখনো লিঙ্গ বাছেনি' };
       a = pick('action', myGender);
@@ -851,6 +869,94 @@ export default function Home() {
     : result.yes === 2 ? '💖 দুজনেই হ্যাঁ!' : '🤔 দুজনেই রাজি, তবে ধীরে';
 
   const showCur = cur && (cur.stopped || tabOfAct(cur.a) === tab);
+  // ---------- ইচ্ছার চাকা ----------
+  const spinWheelTo = (a) => {
+    const segs = actsRef.current.filter((x) => x.kind === 'wheel' && x.level === a.level).sort((x, y) => x.id - y.id);
+    const i = Math.max(0, segs.findIndex((x) => x.id === a.id));
+    const step = 360 / Math.max(1, segs.length);
+    const target = (i + 0.5) * step + (Math.random() - 0.5) * step * 0.6;
+    setWheelHeat(a.level);
+    setWheelRot((cur0) => {
+      const c = ((cur0 % 360) + 360) % 360;
+      const add = ((((-target - c) % 360) + 360) % 360);
+      return cur0 + 360 * 5 + add;
+    });
+  };
+  const wheelParts = (t) => {
+    const [l, ...r] = String(t || '').split('|');
+    const label = l.trim();
+    return { label, detail: r.join('|').trim() || label };
+  };
+  const WHEEL_COLORS = {
+    1: ['#f3d9b1', '#e8b9a0', '#d9c28a', '#e5a9a9'],
+    2: ['#d9a35f', '#c9788a', '#b98a4a', '#a65f78'],
+    3: ['#8e2a3c', '#5b1d4a', '#b0533a', '#3d1a40'],
+  };
+  const wheelNode = () => {
+    const segs = acts.filter((x) => x.kind === 'wheel' && x.level === wheelHeat).sort((x, y) => x.id - y.id);
+    const n = segs.length;
+    const pal = WHEEL_COLORS[wheelHeat] || WHEEL_COLORS[1];
+    const dark = wheelHeat === 3;
+    const R = 132;
+    const step = 360 / Math.max(n, 1);
+    const P = (deg, r) => { const t = ((deg - 90) * Math.PI) / 180; return [150 + r * Math.cos(t), 150 + r * Math.sin(t)]; };
+    const fs = n <= 6 ? 15 : n <= 8 ? 13 : n <= 10 ? 11.5 : 10;
+    const slices = n === 0 ? null : segs.map((s, i) => {
+      const [x1, y1] = P(i * step, R);
+      const [x2, y2] = P((i + 1) * step, R);
+      const [tx, ty] = P((i + 0.5) * step, 92);
+      const th = (i + 0.5) * step;
+      const rot = th - 90 + (th > 180 ? 180 : 0);
+      const lab = wheelParts(s.title).label;
+      const txt = lab.length > 12 ? lab.slice(0, 11) + '…' : lab;
+      return (
+        <g key={s.id}>
+          {n === 1
+            ? <circle cx="150" cy="150" r={R} fill={pal[0]} />
+            : <path d={`M150,150 L${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${step > 180 ? 1 : 0} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`} fill={pal[i % pal.length]} />}
+          <text x={tx.toFixed(1)} y={ty.toFixed(1)} fontSize={fs} fontWeight="700" textAnchor="middle" dominantBaseline="middle"
+            fill={dark ? '#fff3d6' : '#3a2318'} transform={`rotate(${rot.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})`}>{txt}</text>
+        </g>
+      );
+    });
+    const lines = n > 1 ? segs.map((s, i) => { const [x, y] = P(i * step, R); return <line key={s.id} x1="150" y1="150" x2={x.toFixed(1)} y2={y.toFixed(1)} stroke="#d4af37" strokeWidth="1.6" />; }) : null;
+    const dots = Array.from({ length: 24 }, (_, i) => { const [x, y] = P(i * 15, 141); return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="2.3" fill={i % 2 ? '#c4a1ff' : '#e9d8ff'} opacity=".85" />; });
+    return (
+      <div className={'wheelbox' + (wheelView === '3d' ? ' d3' : '')}>
+        <div className="wslices" style={{ transform: `rotate(${wheelRot}deg)`, transition: 'transform 4.2s cubic-bezier(.12,.75,.12,1)' }}>
+          <svg viewBox="0 0 300 300">
+            <circle cx="150" cy="150" r={R} fill="#2a2420" />
+            {slices}{lines}
+          </svg>
+        </div>
+        <svg className="wrim" viewBox="0 0 300 300">
+          <circle cx="150" cy="150" r="141" fill="none" stroke="#1c1410" strokeWidth="12" />
+          <circle cx="150" cy="150" r="134" fill="none" stroke="#d4af37" strokeWidth="3" />
+          {dots}
+          <circle cx="150" cy="150" r="26" fill="#2a2420" stroke="#d4af37" strokeWidth="4" />
+          <text x="150" y="151" fontSize="22" textAnchor="middle" dominantBaseline="middle">🔥</text>
+          <path d="M139,0 L161,0 L150,26 Z" fill="#d4af37" stroke="#8a6d1a" strokeWidth="1" />
+          <circle cx="150" cy="7" r="3.6" fill="#e11d48" />
+        </svg>
+        {n === 0 && <p className="muted" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>এই লেভেলে সেগমেন্ট নেই</p>}
+      </div>
+    );
+  };
+  const wheelControls = (
+    <div className="glass" style={{ padding: 12 }}>
+      <div className="muted">হিট (দুজনের সম্মতির মধ্যে)</div>
+      {[1, 2, 3].map((n) => (
+        <button key={n} className={'pill' + (wheelHeat === n ? ' on' : '')} disabled={n > eff} style={n > eff ? { opacity: 0.4 } : undefined} onClick={() => setWheelHeat(n)}>
+          {lv(n).icon} {lv(n).name}
+        </button>
+      ))}
+      <div className="muted" style={{ marginTop: 8 }}>চাকার ধরন</div>
+      {[['3d', '3D'], ['flat', 'ফ্ল্যাট']].map(([k, l]) => (
+        <button key={k} className={'pill' + (wheelView === k ? ' on' : '')} onClick={() => setWheelView(k)}>{l}</button>
+      ))}
+    </div>
+  );
+
   const showRolling = rolling && rollTab === tab;
   const inRoom = user && adult && room;
   const lastTheirs = [...msgs].reverse().find((m) => m.user_id !== user?.id);
@@ -996,7 +1102,7 @@ export default function Home() {
                 <div className="h3">🎮 গেম বেছে নিন</div>
                 <div className="grid">
                   {GAME_TABS.map((k, i) => (
-                    <button key={k} className="gcard" style={{ '--c': T[k].color, animationDelay: i * 0.08 + 's' }} onClick={() => setTab(k)}>
+                    <button key={k} className="gcard" style={{ '--c': T[k].color, animationDelay: i * 0.08 + 's', gridColumn: k === 'wheel' ? '1 / -1' : undefined }} onClick={() => setTab(k)}>
                       <span className="s" style={{ left: 8, top: 6 }}>{T[k].stk[0]}</span>
                       <span className="s" style={{ right: 8, top: 8 }}>{T[k].stk[1]}</span>
                       <div className="e">{T[k].icon}</div>
@@ -1094,6 +1200,8 @@ export default function Home() {
                       }}>🃏</div>
                     ))}
                   </div>
+                ) : tab === 'wheel' ? (
+                  <>{wheelControls}{wheelNode()}</>
                 ) : (
                   <div className={'hero' + (tab === 'dice' && spinning ? ' loop' : showRolling ? ' spin' : '')}>{T[tab].hero}</div>
                 )}
@@ -1120,7 +1228,9 @@ export default function Home() {
                         </>
                       ) : (
                         <>
-                          {cur.a?.title}
+                          {tab === 'wheel'
+                            ? <><div className="muted">🎡 {wheelParts(cur.a?.title).label}</div>{wheelParts(cur.a?.title).detail}</>
+                            : cur.a?.title}
                           {cur.b && <div className="mod">{cur.b.title}</div>}
                         </>
                       )}
