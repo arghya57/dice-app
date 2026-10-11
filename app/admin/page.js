@@ -121,6 +121,18 @@ const ADM_CSS = `
 @keyframes admpop{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 `;
 
+// GIF/অ্যানিমেটেড ছবি যেমন আছে তেমনই আপলোড হবে (ছোট করলে অ্যানিমেশন নষ্ট হয়), বাকি ছবি JPEG হবে
+const GIF_MAX = 6 * 1024 * 1024; // GIF সর্বোচ্চ ৬MB (ফ্রি স্টোরেজ ও দ্রুত লোডের জন্য)
+const isGif = (f) => f && (f.type === 'image/gif' || /\.gif$/i.test(f.name || ''));
+const prepImage = async (file) => {
+  if (isGif(file)) {
+    if (file.size > GIF_MAX) throw new Error('GIF ৬MB-এর বেশি বড়। ছোট করে আবার দিন');
+    return { blob: file, type: 'image/gif', ext: 'gif' };
+  }
+  const blob = await shrink(file);
+  return { blob, type: 'image/jpeg', ext: 'jpg' };
+};
+
 // ছবি ছোট করে JPEG বানায় (ফ্রি স্টোরেজ বাঁচাতে + দ্রুত লোডের জন্য)
 const shrink = (file) => new Promise((res, rej) => {
   const img = new Image();
@@ -221,7 +233,8 @@ export default function Admin() {
   const pickFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) { setMsg('শুধু ছবি দিন'); return; }
+    if (!f.type.startsWith('image/')) { setMsg('শুধু ছবি বা GIF দিন'); return; }
+    if (isGif(f) && f.size > GIF_MAX) { setMsg('GIF ৬MB-এর বেশি বড়। ছোট করে দিন'); return; }
     if (f.size > 15 * 1024 * 1024) { setMsg('ছবি ১৫MB-এর বেশি বড়'); return; }
     setMsg('');
     setFile(f);
@@ -236,11 +249,11 @@ export default function Admin() {
     if (!form.title.trim()) return setMsg('নাম লিখুন');
     setBusy(true);
     try {
-      let image_url = form.kind === 'card' ? (form.image_url || null) : null;
-      if (file && form.kind === 'card') {
-        const blob = await shrink(file);
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+      let image_url = form.image_url || null;
+      if (file) {
+        const { blob, type, ext } = await prepImage(file);
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: type });
         if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
         image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       }
@@ -320,7 +333,8 @@ export default function Admin() {
   const pickGiftFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) return setMsg('শুধু ছবি দিন');
+    if (!f.type.startsWith('image/')) return setMsg('শুধু ছবি বা GIF দিন');
+    if (isGif(f) && f.size > GIF_MAX) return setMsg('GIF ৬MB-এর বেশি বড়। ছোট করে দিন');
     if (f.size > 15 * 1024 * 1024) return setMsg('ছবি ১৫MB-এর বেশি বড়');
     setMsg(''); setGFile(f); setGPrev(URL.createObjectURL(f));
   };
@@ -333,9 +347,9 @@ export default function Admin() {
     try {
       let image_url = gf.image_url || null;
       if (gFile) {
-        const blob = await shrink(gFile);
-        const path = `gift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+        const { blob, type, ext } = await prepImage(gFile);
+        const path = `gift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: type });
         if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
         image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       }
@@ -433,9 +447,9 @@ export default function Admin() {
     try {
       let image_url = itf.image_url || null;
       if (iFile) {
-        const blob = await shrink(iFile);
-        const path = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+        const { blob, type, ext } = await prepImage(iFile);
+        const path = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: type });
         if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
         image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       }
@@ -723,7 +737,7 @@ export default function Admin() {
             )}
             <label style={lbl}>দাম (কয়েন, ০ = শপে বিক্রি হবে না)</label>
             <input style={inp} type="number" min="0" value={gf.price} onChange={(e) => setG('price', e.target.value)} />
-            <label style={lbl}>কার্ডের ছবি</label>
+            <label style={lbl}>কার্ডের ছবি বা GIF (GIF সর্বোচ্চ ৬MB)</label>
             {(gPrev || gf.image_url) && (
               <div>
                 <img src={gPrev || gf.image_url} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, margin: '6px 0' }} />
@@ -1016,9 +1030,9 @@ export default function Admin() {
       <label style={lbl}>টাইমার সেকেন্ড (০ = টাইমার নেই)</label>
       <input style={inp} type="number" min="0" value={form.seconds} onChange={(e) => set('seconds', e.target.value)} />
 
-      {form.kind === 'card' && (
+      {(
         <div>
-          <label style={lbl}>কার্ডের ছবি (ঐচ্ছিক)</label>
+          <label style={lbl}>ছবি বা GIF (ঐচ্ছিক, GIF সর্বোচ্চ ৬MB। ফলাফলে এটা দেখাবে)</label>
           {(preview || form.image_url) && (
             <div>
               <img src={preview || form.image_url} alt="" style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 10, margin: '6px 0' }} />
