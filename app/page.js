@@ -36,17 +36,20 @@ const HUB_TEXT = {
   wheel: 'ইচ্ছার চাকা ঘুরিয়ে ভাগ্য দেখুন',
 };
 const QUICK_MSGS = ['😘 আমি রেডি', '⏳ একটু অপেক্ষা করো', '🔄 অন্যটা দাও', '💗 একটু বিরতি চাই', '🔥 আরও চাই'];
-const FLOATERS = [
-  ['💋', '6%', '12%', '0s'], ['🔥', '82%', '8%', '2s'], ['😈', '12%', '48%', '4s'], ['🌹', '88%', '42%', '1s'],
-  ['🍷', '8%', '78%', '3s'], ['🥵', '78%', '74%', '5s'], ['🍑', '46%', '90%', '2.5s'], ['💞', '50%', '4%', '6s'],
-  ['😘', '30%', '30%', '7s'], ['🫦', '65%', '60%', '3.5s'], ['💦', '20%', '65%', '8s'], ['🖤', '92%', '85%', '1.5s'],
-  ['💏', '14%', '20%', '1s'], ['👩‍❤️‍💋‍👨', '70%', '18%', '3s'], ['💑', '40%', '55%', '5s'],
-  ['😘', '85%', '60%', '2s'], ['🫂', '25%', '85%', '4s'], ['💏', '60%', '82%', '6s'],
-  ['👩‍❤️‍💋‍👨', '5%', '55%', '7s'], ['💋', '92%', '25%', '0.5s'],
-];
-const HERO_STICKERS = [['💏', -12], ['😍', 8], ['👩‍❤️‍💋‍👨', -6], ['🫦', 12], ['💑', -10], ['😈', 6], ['💋', -8], ['🔥', 10]];
 
 const tabOfAct = (a) => (a?.kind === 'card' ? 'card' : a?.kind === 'truth' ? 'truth' : a?.kind === 'dare' ? 'dare' : a?.kind === 'wheel' ? 'wheel' : 'dice');
+
+const DOCK = [['home', 'হোম'], ['games', 'গেম'], ['gifts', 'গিফট'], ['chat', 'চ্যাট'], ['avatar', 'সাজ']];
+const DockIcon = ({ k }) => {
+  const p = {
+    home: <><path d="M3.5 11 12 3.5 20.5 11" /><path d="M5.5 9.5V20h13V9.5" /><path d="M10 20v-5.5h4V20" /></>,
+    games: <><rect x="4" y="4" width="16" height="16" rx="4.5" /><circle cx="9" cy="9" r=".9" fill="currentColor" /><circle cx="15" cy="9" r=".9" fill="currentColor" /><circle cx="12" cy="12" r=".9" fill="currentColor" /><circle cx="9" cy="15" r=".9" fill="currentColor" /><circle cx="15" cy="15" r=".9" fill="currentColor" /></>,
+    gifts: <><rect x="3.5" y="8" width="17" height="4" rx="1" /><path d="M5 12h14v8H5z" /><path d="M12 8v12" /><path d="M12 8C9.5 3.8 5.8 5.5 7.4 7.8 8.2 8.2 10.4 8.2 12 8Zm0 0c2.5-4.200 6.200-2.500 4.600-.2-.8.400-3 .4-4.600.2Z" /></>,
+    chat: <><path d="M4.5 5.5h15v10.5H10l-4.500 3.500V16h-1z" /></>,
+    avatar: <><circle cx="12" cy="8" r="3.8" /><path d="M4.5 20.500c.5-4 3.800-6 7.500-6s7 2 7.500 6" /></>,
+  }[k];
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{p}</svg>;
+};
 
 const urlB64ToUint8Array = (b64) => {
   const pad = '='.repeat((4 - (b64.length % 4)) % 4);
@@ -55,128 +58,125 @@ const urlB64ToUint8Array = (b64) => {
 };
 
 const CSS = `
-.app{position:relative;min-height:100vh;padding:128px 46px 50px;max-width:460px;margin:0 auto;text-align:center;overflow-x:hidden;font-family:'Hind Siliguri',sans-serif}
-.bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 18% 8%,#4d0b30 0,transparent 46%),radial-gradient(circle at 88% 30%,#3a0a48 0,transparent 42%),radial-gradient(circle at 50% 105%,#5e0f20 0,transparent 52%),#0b0210}
-.float{position:fixed;font-size:28px;opacity:.24;animation:drift 14s ease-in-out infinite;pointer-events:none;z-index:0}
+.app{--gold:#e3bd76;--gold2:#f7e0b0;--line:rgba(255,255,255,.09);--ink:#f6eff3;--mut:#a99ba8;position:relative;min-height:100vh;padding:calc(18px + env(safe-area-inset-top)) 16px calc(124px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;text-align:center;overflow-x:hidden;font-family:'Hind Siliguri',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(120% 55% at 50% -8%,color-mix(in srgb,var(--accent) 26%,transparent) 0,transparent 62%),radial-gradient(90% 50% at 100% 100%,rgba(227,189,118,.10) 0,transparent 60%),radial-gradient(70% 40% at 0% 70%,rgba(120,40,160,.14) 0,transparent 60%),linear-gradient(180deg,#0e0815,#07050b)}
 .z{position:relative;z-index:1}
-.logo{font-size:36px;font-weight:700;margin:6px 0 0;background:linear-gradient(90deg,#ffa6c9,#ff3d7f,#ffb347);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(255,61,127,.35)}
-.sub{font-size:12px;letter-spacing:.16em;color:#e0a9c2;margin:0 0 10px}
-.glass{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:22px;padding:16px;margin:12px 0;box-shadow:0 10px 40px rgba(0,0,0,.35)}
-.inp{width:100%;padding:13px 15px;margin:6px 0;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.38);color:#fff;font-size:16px;box-sizing:border-box;outline:none;font-family:inherit}
-.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,61,127,.28)}
-.btn{padding:12px 20px;margin:4px;border:none;border-radius:999px;color:#fff;font-size:15px;font-weight:600;background:linear-gradient(135deg,var(--accent),#7a1fa2);box-shadow:0 6px 20px rgba(0,0,0,.45);cursor:pointer;font-family:inherit}
-.btn:active{transform:scale(.95)}
-.btn:disabled{opacity:.5}
-.big{padding:15px 30px;font-size:18px;box-shadow:0 8px 30px rgba(0,0,0,.5),0 0 26px -4px var(--accent)}
-.ghost{background:rgba(255,255,255,.1);box-shadow:none;border:1px solid rgba(255,255,255,.16)}
-.stop{background:linear-gradient(135deg,#d90429,#7a0019)}
-.tiny{font-size:12px;padding:7px 14px}
-.pill{padding:7px 14px;margin:3px;border-radius:999px;font-size:13px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#eee;font-family:inherit;cursor:pointer}
-.pill.on{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 0 16px var(--accent)}
-.hero{font-size:86px;margin:8px 0 4px;filter:drop-shadow(0 0 24px var(--accent))}
+.logo{font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:700;letter-spacing:.02em;margin:0;background:linear-gradient(90deg,#f7e0b0,#e3bd76 50%,#f3c9d8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:11px;letter-spacing:.2em;color:var(--mut);margin:2px 0 14px}
+.ptitle{font-size:22px;font-weight:700;letter-spacing:.01em;margin:8px 0 2px;color:#fff}
+.glass{background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.025));border:1px solid var(--line);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-radius:22px;padding:16px;margin:12px 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 22px 44px -22px rgba(0,0,0,.75)}
+.emblem{width:76px;height:76px;margin:6px auto 12px;border-radius:24px;display:grid;place-items:center;font-size:36px;background:linear-gradient(145deg,rgba(227,189,118,.28),rgba(227,189,118,.06));border:1px solid rgba(227,189,118,.4);box-shadow:0 14px 34px -12px rgba(227,189,118,.5)}
+.inp{width:100%;padding:14px 16px;margin:6px 0;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.35);color:#fff;font-size:16px;box-sizing:border-box;outline:none;font-family:inherit;transition:border-color .2s,box-shadow .2s}
+.inp::placeholder{color:#7d6f7c}
+.inp:focus{border-color:rgba(227,189,118,.65);box-shadow:0 0 0 3px rgba(227,189,118,.15)}
+.btn{padding:12px 22px;margin:4px;border:none;border-radius:999px;color:#1a1008;font-size:15px;font-weight:700;background:linear-gradient(135deg,#f6dba0,#cf9f4f);box-shadow:0 12px 26px -12px rgba(227,189,118,.75),inset 0 1px 0 rgba(255,255,255,.45);cursor:pointer;font-family:inherit;transition:transform .15s,filter .2s}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.42;filter:saturate(.6)}
+.big{padding:15px 32px;font-size:17px}
+.ghost{background:rgba(255,255,255,.06);color:var(--ink);box-shadow:none;border:1px solid var(--line);font-weight:600}
+.stop{background:linear-gradient(135deg,#e5314f,#8d1230);color:#fff;box-shadow:0 12px 26px -12px rgba(229,49,79,.7)}
+.go{background:linear-gradient(135deg,#34d07a,#0f7a3f);color:#fff;box-shadow:0 12px 26px -12px rgba(52,208,122,.6)}
+.tiny{font-size:12px;padding:7px 14px;font-weight:600}
+.pill{padding:8px 15px;margin:3px;border-radius:999px;font-size:13px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:#e9dfe6;font-family:inherit;cursor:pointer;transition:all .2s}
+.pill:disabled{opacity:.4}
+.pill.on{background:linear-gradient(135deg,rgba(227,189,118,.26),rgba(227,189,118,.08));border-color:rgba(227,189,118,.6);color:var(--gold2)}
+.seg{display:flex;gap:4px;padding:4px;margin:10px 0;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.seg button{flex:1 0 auto;padding:10px 14px;border:0;border-radius:14px;background:transparent;color:var(--mut);font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all .22s}
+.seg button:disabled{opacity:.4}
+.seg button.on{background:linear-gradient(135deg,#f6dba0,#cf9f4f);color:#1a1008;box-shadow:0 8px 18px -8px rgba(227,189,118,.7)}
+.hero{font-size:72px;margin:10px 0 6px;filter:drop-shadow(0 10px 26px color-mix(in srgb,var(--accent) 55%,transparent))}
 .spin{animation:spin 1.2s ease-out}
 .loop{animation:spin .8s linear infinite}
-.go{background:linear-gradient(135deg,#1fb85a,#0b6b32)}
-.who{font-size:15px;color:#ffd9a0;margin:2px 0 10px}
+.who{font-size:14px;color:var(--gold2);margin:2px 0 12px}
 .dbox{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0}
 .dbox.one{grid-template-columns:1fr}
-.dbox .b{padding:16px 8px 18px;border-radius:18px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.38);font-size:19px;line-height:1.4;box-shadow:0 0 18px -8px var(--accent)}
-.dbox .b small{display:block;font-size:11px;color:#d9b4c6;margin-bottom:6px}
-.lvbadge{display:inline-block;padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid var(--accent);font-size:13px;margin-bottom:8px}
+.dbox .b{padding:16px 10px 18px;border-radius:18px;border:1px solid var(--line);background:rgba(0,0,0,.32);font-size:18px;line-height:1.45;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.dbox .b small{display:block;font-size:10.5px;letter-spacing:.14em;color:var(--gold);margin-bottom:8px}
+.lvbadge{display:inline-block;padding:4px 14px;border-radius:999px;background:rgba(227,189,118,.1);border:1px solid rgba(227,189,118,.4);color:var(--gold2);font-size:12px;letter-spacing:.04em;margin-bottom:10px}
 .fan{height:152px;margin:10px 0}
-.fan .c{display:inline-block;width:92px;height:134px;margin:0 -18px;border-radius:14px;background:linear-gradient(160deg,#2c0a1e,#0e0212);border:2px solid var(--accent);font-size:38px;line-height:130px;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 18px -6px var(--accent)}
-.res{padding:18px;border-radius:24px;background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.03));border:1.5px solid var(--accent);box-shadow:0 0 30px rgba(0,0,0,.4),0 0 26px -6px var(--accent);font-size:21px;line-height:1.55;margin:12px 0}
+.fan .c{display:inline-block;width:92px;height:134px;margin:0 -18px;border-radius:16px;background:repeating-linear-gradient(45deg,rgba(227,189,118,.07) 0 6px,transparent 6px 12px),linear-gradient(160deg,#2a1636,#0c0714);border:1px solid rgba(227,189,118,.55);font-size:34px;line-height:130px;box-shadow:0 16px 30px -10px rgba(0,0,0,.8)}
+.res{position:relative;padding:22px 18px 18px;border-radius:26px;background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.025));border:1px solid rgba(227,189,118,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 26px 50px -22px rgba(0,0,0,.8),0 0 40px -18px var(--gold);font-size:20px;line-height:1.55;margin:14px 0;overflow:hidden}
+.res::before{content:'';position:absolute;left:20%;right:20%;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
 .res img{width:100%;max-height:320px;object-fit:cover;border-radius:16px;margin-bottom:12px}
-.mod{color:#ffd9a0;margin-top:8px}
-.stopbox{padding:16px;border-radius:20px;background:rgba(120,10,30,.45);border:1px solid rgba(255,80,100,.4);margin:12px 0;font-size:18px}
-.time{font-size:48px;font-weight:700;letter-spacing:.06em;text-shadow:0 0 20px var(--accent)}
-.code{display:inline-block;padding:5px 18px;margin-left:6px;border-radius:999px;background:rgba(0,0,0,.4);border:1px dashed var(--accent);font-size:22px;letter-spacing:.3em;font-weight:700}
-.h3{margin:18px 0 8px;font-size:17px;color:#ffd0e3}
-.item{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);padding:12px 14px;border-radius:16px;margin:8px 0;font-size:16px}
-.muted{font-size:13px;color:#d9b4c6}
-.sticker{display:inline-block;font-size:34px;line-height:1;padding:9px;margin:4px;border-radius:50%;background:rgba(255,255,255,.09);border:2px dashed rgba(255,255,255,.35);box-shadow:0 6px 18px rgba(0,0,0,.4),0 0 16px -4px var(--accent);transform:rotate(var(--r,0deg));animation:wob 3.4s ease-in-out infinite}
-.stkrow{margin:2px 0 8px}
-.welcome{font-size:15px;color:#ffd0e3;margin:2px 0 10px}
+.mod{color:var(--gold2);margin-top:8px}
+.stopbox{padding:16px;border-radius:20px;background:rgba(150,20,45,.28);border:1px solid rgba(255,90,110,.35);margin:12px 0;font-size:17px}
+.time{font-size:44px;font-weight:600;letter-spacing:.06em;font-variant-numeric:tabular-nums;color:var(--gold2)}
+.code{display:inline-block;padding:4px 16px;margin-left:8px;border-radius:999px;background:rgba(227,189,118,.08);border:1px solid rgba(227,189,118,.4);color:var(--gold2);font-size:16px;letter-spacing:.28em;font-weight:700}
+.h3{display:flex;align-items:center;gap:12px;margin:24px 0 12px;font-size:12.5px;font-weight:700;letter-spacing:.14em;color:var(--gold)}
+.h3::before,.h3::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(227,189,118,.4))}
+.h3::after{background:linear-gradient(270deg,transparent,rgba(227,189,118,.4))}
+.item{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--line);padding:13px 15px;border-radius:16px;margin:8px 0;font-size:15.5px;text-align:left}
+.muted{font-size:12.5px;color:var(--mut);line-height:1.55}
+.welcome{font-size:14px;color:#ecdde6;margin:2px 0 12px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
-.gcard{position:relative;overflow:hidden;text-align:center;padding:18px 10px 14px;border-radius:24px;border:1.5px solid var(--c);background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(255,255,255,.02));box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 26px -8px var(--c);color:#fff;font-family:inherit;cursor:pointer;animation:pop .45s ease-out}
-.gcard:active{transform:scale(.96)}
-.gcard .e{font-size:50px;filter:drop-shadow(0 0 14px var(--c))}
-.gcard .t{font-size:19px;font-weight:700;margin-top:4px}
-.gcard .d{font-size:12px;color:#e6c3d3;margin-top:3px;line-height:1.4}
-.gcard .s{position:absolute;font-size:18px;opacity:.55}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2px 0 10px}
-.mini{padding:12px 8px;border-radius:18px;border:1px solid var(--c);background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:15px;cursor:pointer}
-.badge{display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.18);font-size:12px;margin:3px}
-.tabs{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;gap:8px;overflow-x:auto;padding:calc(10px + env(safe-area-inset-top)) 10px 10px;background:linear-gradient(180deg,rgba(40,4,30,.96),rgba(12,2,16,.88));-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.14);box-shadow:0 8px 30px rgba(0,0,0,.5);scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tabs button{flex:0 0 auto;min-width:76px;padding:8px 6px 7px;border-radius:20px;border:1.5px solid var(--nc);background:rgba(255,255,255,.07);color:#f3d3e1;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
-.tabs button span{display:block;font-size:32px;line-height:1.1;filter:drop-shadow(0 0 8px var(--nc))}
-.tabs button.on{background:linear-gradient(160deg,var(--nc),#5a1450);color:#fff;transform:translateY(2px) scale(1.06);box-shadow:0 0 22px -2px var(--nc)}
-.tabs button i{display:none}
-.side{position:fixed;top:130px;bottom:50px;width:44px;z-index:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-around;align-items:center;font-size:30px;opacity:.75}
-.side.l{left:2px}.side.r{right:2px}
-.side span{display:block;animation:sway 3s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(255,150,200,.6))}
-.side .dn{animation:dance 1.1s ease-in-out infinite;font-size:36px}
-.waves{position:fixed;left:0;right:0;bottom:0;z-index:0;pointer-events:none;font-size:26px;white-space:nowrap;overflow:hidden;opacity:.55;line-height:1}
-.waves div{display:inline-block;animation:wave 14s linear infinite}
-.beach{font-size:38px;margin:6px 0;white-space:nowrap}
-.beach span{display:inline-block;animation:dance 1.3s ease-in-out infinite}
-.tabs button{position:relative}
-.tabs button .dot{position:absolute;top:2px;right:6px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#ff2d55;color:#fff;font-size:11px;line-height:18px;font-weight:700;box-shadow:0 0 10px rgba(255,45,85,.8)}
-.status{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:6px 0}
-.status .badge.turn{border-color:var(--accent);box-shadow:0 0 14px -4px var(--accent)}
+.gcard{position:relative;overflow:hidden;text-align:center;padding:20px 12px 16px;border-radius:24px;border:1px solid var(--line);background:linear-gradient(165deg,rgba(255,255,255,.075),rgba(255,255,255,.02));box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 18px 36px -20px rgba(0,0,0,.8);color:#fff;font-family:inherit;cursor:pointer;animation:pop .45s ease-out;transition:transform .2s,border-color .2s}
+.gcard::before{content:'';position:absolute;inset:0;background:radial-gradient(90% 70% at 50% -10%,color-mix(in srgb,var(--c) 28%,transparent),transparent 70%);pointer-events:none}
+.gcard:active{transform:scale(.97)}
+.gcard:hover{border-color:color-mix(in srgb,var(--c) 55%,transparent)}
+.gcard .e{position:relative;width:58px;height:58px;margin:0 auto 10px;border-radius:19px;display:grid;place-items:center;font-size:29px;background:linear-gradient(145deg,color-mix(in srgb,var(--c) 40%,#1b1022),color-mix(in srgb,var(--c) 10%,#0d0813));border:1px solid color-mix(in srgb,var(--c) 50%,transparent);box-shadow:0 12px 22px -10px var(--c)}
+.gcard .t{position:relative;font-size:16.5px;font-weight:700}
+.gcard .d{position:relative;font-size:11.5px;color:var(--mut);margin-top:3px;line-height:1.45}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2px 0 12px}
+.mini{padding:14px 10px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(165deg,rgba(255,255,255,.07),rgba(255,255,255,.025));color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);transition:transform .15s}
+.mini:active{transform:scale(.97)}
+.mini:disabled{opacity:.45}
+.badge{display:inline-block;padding:5px 13px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px;margin:3px;color:#eadce4}
+.status{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:8px 0}
+.status .badge.turn{border-color:rgba(227,189,118,.5);color:var(--gold2);background:rgba(227,189,118,.08)}
 .status .badge.wait{opacity:.8}
-.dotp{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#777;vertical-align:middle}
-.dotp.on{background:#3ddc84;box-shadow:0 0 8px #3ddc84}
-.notice{padding:10px 14px;border-radius:16px;margin:8px 0;font-size:15px;cursor:pointer;background:rgba(94,200,255,.14);border:1px solid rgba(94,200,255,.5)}
-.chatbox{height:46vh;overflow-y:auto;text-align:left;padding:12px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}
-.bub{max-width:82%;padding:9px 13px;border-radius:18px;font-size:15px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
-.bub.me{align-self:flex-end;background:linear-gradient(135deg,#ff3d7f,#7a1fa2);border-bottom-right-radius:6px}
-.bub.th{align-self:flex-start;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);border-bottom-left-radius:6px}
-.bub small{display:block;font-size:10px;opacity:.65;margin-top:3px;text-align:right}
+.dotp{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:#6b5f69;vertical-align:middle}
+.dotp.on{background:#3ddc84;box-shadow:0 0 10px #3ddc84}
+.notice{padding:11px 15px;border-radius:16px;margin:10px 0;font-size:14.5px;cursor:pointer;background:linear-gradient(135deg,rgba(227,189,118,.14),rgba(227,189,118,.05));border:1px solid rgba(227,189,118,.4);color:var(--gold2);text-align:left}
+.dock{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));max-width:456px;margin:0 auto;z-index:10;display:flex;gap:2px;padding:7px;border-radius:28px;background:rgba(20,13,28,.74);-webkit-backdrop-filter:blur(26px) saturate(1.4);backdrop-filter:blur(26px) saturate(1.4);border:1px solid rgba(255,255,255,.11);box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 24px 50px -12px rgba(0,0,0,.85)}
+.dock button{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 2px 8px;border:0;border-radius:21px;background:transparent;color:#8f8190;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .22s}
+.dock button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dock button.on{color:var(--gold2);background:linear-gradient(180deg,rgba(227,189,118,.18),rgba(227,189,118,.04))}
+.dock button.on::after{content:'';position:absolute;bottom:3px;width:14px;height:2px;border-radius:2px;background:var(--gold)}
+.dock .dot{position:absolute;top:3px;left:calc(50% + 4px);min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#ff2d55;color:#fff;font-size:10.5px;line-height:17px;font-weight:700;box-shadow:0 0 10px rgba(255,45,85,.7)}
+.chatbox{height:48vh;overflow-y:auto;text-align:left;padding:14px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}
+.bub{max-width:82%;padding:10px 14px;border-radius:20px;font-size:15px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
+.bub.me{align-self:flex-end;background:linear-gradient(135deg,#f3d595,#c9994c);color:#1a1008;border-bottom-right-radius:6px;box-shadow:0 10px 22px -12px rgba(227,189,118,.7)}
+.bub.th{align-self:flex-start;background:rgba(255,255,255,.08);border:1px solid var(--line);border-bottom-left-radius:6px}
+.bub small{display:block;font-size:10px;opacity:.6;margin-top:3px;text-align:right}
 .sendrow{display:flex;gap:6px;align-items:center}
 .sendrow .inp{margin:0;flex:1}
 .sendrow .btn{margin:0;flex:0 0 auto}
-.quick{margin:6px 0}
-.setbox{margin-top:14px}
-.coinbar{display:inline-block;padding:8px 18px;margin:8px 0;border-radius:999px;font-size:20px;font-weight:700;background:rgba(255,211,105,.14);border:1.5px solid #ffd369;box-shadow:0 0 18px -4px #ffd369}
+.quick{margin:8px 0}
+.setbox{margin-top:20px}
+.coinbar{display:inline-block;padding:8px 20px;margin:8px 0;border-radius:999px;font-size:18px;font-weight:700;color:var(--gold2);background:linear-gradient(135deg,rgba(227,189,118,.16),rgba(227,189,118,.05));border:1px solid rgba(227,189,118,.5);box-shadow:0 10px 24px -12px rgba(227,189,118,.7)}
 .ggrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
-.gwrap{display:flex;flex-direction:column;gap:6px;align-items:stretch}
-.gcx{position:relative;border-radius:18px;padding:10px 8px 12px;border:2px solid var(--rc);background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(0,0,0,.35));box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 18px -6px var(--rc);animation:pop .4s ease-out}
+.gwrap{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.gcx{position:relative;border-radius:20px;padding:11px 9px 13px;border:1px solid color-mix(in srgb,var(--rc) 55%,transparent);background:linear-gradient(165deg,color-mix(in srgb,var(--rc) 14%,#150d1d),rgba(0,0,0,.35));box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 16px 30px -16px rgba(0,0,0,.85);animation:pop .4s ease-out}
 .gcx.r1{--rc:#9fb3c8}
 .gcx.r2{--rc:#5ec8ff}
-.gcx.r3{--rc:#ffd369;animation:pop .4s ease-out,glow 2.4s ease-in-out infinite}
+.gcx.r3{--rc:#e3bd76;animation:pop .4s ease-out,glow 2.8s ease-in-out infinite}
 .gcx.myst{--rc:#b266ff;border-style:dashed}
-.gcx .rt{font-size:11px;font-weight:700;color:var(--rc)}
-.gcx .gi{height:96px;display:flex;align-items:center;justify-content:center;font-size:58px;margin:4px 0}
+.gcx .rt{font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--rc)}
+.gcx .gi{height:96px;display:flex;align-items:center;justify-content:center;font-size:56px;margin:6px 0}
 .gcx .gi img{width:100%;height:96px;object-fit:cover;border-radius:12px}
 .gcx .gn{font-size:15px;font-weight:700;line-height:1.3}
-.gcx .gp{font-size:12px;color:#e6c3d3;margin-top:2px}
-.gcx .gs{font-size:11px;color:#d9b4c6;margin-top:3px}
-.modal{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.75)}
-.mbox{width:100%;max-width:300px;padding:18px;border-radius:24px;background:#1b0a26;border:1.5px solid var(--accent);box-shadow:0 0 40px -6px var(--accent)}
+.gcx .gp{font-size:12px;color:var(--mut);margin-top:2px}
+.gcx .gs{font-size:11px;color:var(--mut);margin-top:3px}
+.modal{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,3,9,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.mbox{width:100%;max-width:310px;padding:20px;border-radius:28px;background:linear-gradient(180deg,#1b1126,#110a19);border:1px solid rgba(227,189,118,.45);box-shadow:0 30px 70px -10px rgba(0,0,0,.9),0 0 50px -16px var(--gold)}
 .avrow{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
-.avstage{margin:8px 0;padding:10px 0;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,.25));border:1px solid rgba(255,255,255,.14)}
-.sw{display:inline-block;width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.4);margin:3px;cursor:pointer;padding:0;vertical-align:middle}
-.sw.on{border-color:#fff;box-shadow:0 0 12px #fff}
-.itile{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;padding:12px 6px;border-radius:16px;border:2px solid var(--rc);background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:14px;cursor:pointer}
-.itile.r1{--rc:#9fb3c8}.itile.r2{--rc:#5ec8ff}.itile.r3{--rc:#ffd369}
-.itile.eq{background:var(--rc);color:#111}
+.avstage{margin:10px 0;padding:12px 0;border-radius:26px;background:radial-gradient(80% 60% at 50% 0,rgba(227,189,118,.12),transparent 70%),linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.25));border:1px solid var(--line)}
+.sw{display:inline-block;width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.25);margin:3px;cursor:pointer;padding:0;vertical-align:middle;transition:transform .15s}
+.sw.on{border-color:#fff;transform:scale(1.15);box-shadow:0 0 0 3px rgba(227,189,118,.5)}
+.itile{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;padding:13px 6px;border-radius:18px;border:1px solid color-mix(in srgb,var(--rc) 60%,transparent);background:linear-gradient(165deg,rgba(255,255,255,.07),rgba(255,255,255,.02));color:#fff;font-family:inherit;font-size:14px;cursor:pointer}
+.itile.r1{--rc:#9fb3c8}.itile.r2{--rc:#5ec8ff}.itile.r3{--rc:#e3bd76}
+.itile.eq{background:linear-gradient(135deg,var(--rc),color-mix(in srgb,var(--rc) 60%,#000));color:#111}
 .itile small{font-size:11px;opacity:.85}
-@keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(-4px)}}
-@keyframes dance{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-12px) rotate(10deg)}}
-@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(720deg)}}
 @keyframes shuf{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(-40px) rotate(-12deg)}50%{transform:translateX(40px) rotate(12deg)}75%{transform:translateX(-25px) rotate(-6deg)}100%{transform:translateX(0) rotate(0)}}
 @keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
-@keyframes drift{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-28px) rotate(10deg)}}
-@keyframes pop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
-@keyframes wob{0%,100%{transform:rotate(var(--r,0deg)) scale(1)}50%{transform:rotate(calc(var(--r,0deg) * -1)) scale(1.08)}}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
 .wheelbox{position:relative;width:min(100%,340px);aspect-ratio:1/1;margin:14px auto;transition:transform .5s}
 .wheelbox.d3{transform:perspective(900px) rotateX(34deg) scale(.96);filter:drop-shadow(0 28px 22px rgba(0,0,0,.55))}
 .wheelbox .wslices,.wheelbox .wrim{position:absolute;inset:0}
 .wheelbox svg{width:100%;height:100%;display:block}
-@keyframes glow{0%,100%{box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 14px -6px #ffd369}50%{box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 30px 0 #ffd369}}
+@keyframes glow{0%,100%{box-shadow:0 16px 30px -16px rgba(0,0,0,.85),0 0 14px -6px #e3bd76}50%{box-shadow:0 16px 30px -16px rgba(0,0,0,.85),0 0 30px 0 #e3bd76}}
 `;
 
 export default function Home() {
@@ -982,30 +982,13 @@ export default function Home() {
     <div className="app" style={{ '--accent': accent }}>
       <style>{CSS}</style>
       <div className="bg" />
-      {FLOATERS.map(([e, x, y, d], i) => (
-        <span key={i} className="float" style={{ left: x, top: y, animationDelay: d }}>{e}</span>
-      ))}
-      <div className="side l">
-        {['🌴', '💃', '👙', '🍹', '🏖️'].map((e, i) => (
-          <span key={i} className={e === '💃' ? 'dn' : ''} style={{ animationDelay: i * 0.4 + 's' }}>{e}</span>
-        ))}
-      </div>
-      <div className="side r">
-        {['🕶️', '🕺', '🩳', '🩱', '🌴'].map((e, i) => (
-          <span key={i} className={e === '🕺' ? 'dn' : ''} style={{ animationDelay: i * 0.5 + 's' }}>{e}</span>
-        ))}
-      </div>
-      <div className="waves"><div>{'🌊'.repeat(60)}</div></div>
-
       <div className="z">
         <h1 className="logo">💋 Dice App</h1>
         <p className="sub">শুধু দুজনের জন্য · ১৮+ · সম্মতিই আসল</p>
 
         {!user && (
           <div className="glass" style={{ animation: 'pop .4s ease-out' }}>
-            <div className="stkrow">
-              {HERO_STICKERS.map(([e, r], i) => <span key={i} className="sticker" style={{ '--r': r + 'deg' }}>{e}</span>)}
-            </div>
+            <div className="emblem">💋</div>
             <p className="muted">লগইন করে শুরু করুন</p>
             <input className="inp" placeholder="ইমেইল" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input className="inp" type="password" placeholder="পাসওয়ার্ড (৬+ অক্ষর)" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -1027,9 +1010,6 @@ export default function Home() {
 
         {user && adult && !room && (
           <div className="glass" style={{ animation: 'pop .4s ease-out' }}>
-            <div className="stkrow">
-              {[['🍷', -10], ['💞', 8], ['🌹', -6]].map(([e, r], i) => <span key={i} className="sticker" style={{ '--r': r + 'deg' }}>{e}</span>)}
-            </div>
             <div className="muted">আপনার লিঙ্গ বাছুন (ডাইসের অপশন মেলাতে লাগে)</div>
             <GenderPills value={gender} onPick={rememberGender} />
             <button className="btn big" onClick={createRoom}>🌹 নতুন রুম বানান</button>
@@ -1067,16 +1047,6 @@ export default function Home() {
 
             {tab === 'home' && (
               <>
-                <div className="stkrow">
-                  {HERO_STICKERS.map(([e, r], i) => (
-                    <span key={i} className="sticker" style={{ '--r': r + 'deg', animationDelay: i * 0.3 + 's' }}>{e}</span>
-                  ))}
-                </div>
-                <div className="beach">
-                  <span>🕺</span><span style={{ animationDelay: '.2s' }}>🌴</span>
-                  <span style={{ animationDelay: '.4s' }}>💞</span>
-                  <span style={{ animationDelay: '.6s' }}>🏖️</span><span style={{ animationDelay: '.8s' }}>💃</span>
-                </div>
                 <p className="welcome">
                   {room.partner2_id ? '💞 দুজনেই এসেছেন, শুরু করুন!' : '⏳ পার্টনার আসার অপেক্ষায়...'}
                 </p>
@@ -1103,8 +1073,6 @@ export default function Home() {
                 <div className="grid">
                   {GAME_TABS.map((k, i) => (
                     <button key={k} className="gcard" style={{ '--c': T[k].color, animationDelay: i * 0.08 + 's', gridColumn: k === 'wheel' ? '1 / -1' : undefined }} onClick={() => setTab(k)}>
-                      <span className="s" style={{ left: 8, top: 6 }}>{T[k].stk[0]}</span>
-                      <span className="s" style={{ right: 8, top: 8 }}>{T[k].stk[1]}</span>
                       <div className="e">{T[k].icon}</div>
                       <div className="t">{T[k].label}</div>
                       <div className="d">{HUB_TEXT[k]}</div>
@@ -1163,12 +1131,12 @@ export default function Home() {
 
             {isGameTab && (
               <>
-                <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>{T[tab].icon} {T[tab].title}</h2>
-                <div className="stkrow">
-                  {T[tab].stk.map((e, i) => (
-                    <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26, animationDelay: i * 0.3 + 's' }}>{e}</span>
+                <div className="seg">
+                  {GAME_TABS.map((k) => (
+                    <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{T[k].icon} {T[k].label}</button>
                   ))}
                 </div>
+                <h2 className="ptitle">{T[tab].icon} {T[tab].title}</h2>
                 <p className="muted" style={{ margin: 0 }}>{T[tab].desc}</p>
                 <StatusBar />
 
@@ -1287,7 +1255,7 @@ export default function Home() {
 
             {tab === 'chat' && (
               <>
-                <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>🗨️ রুম চ্যাট</h2>
+                <h2 className="ptitle">🗨️ রুম চ্যাট</h2>
                 <StatusBar />
                 <div className="glass chatbox" ref={chatBoxRef}>
                   {msgs.length === 0 && <p className="muted" style={{ textAlign: 'center' }}>এখনো কোনো মেসেজ নেই। প্রথম মেসেজটা আপনি দিন 💌</p>}
@@ -1319,10 +1287,7 @@ export default function Home() {
 
             {tab === 'wish' && (
               <>
-                <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>💭 গোপন ইচ্ছা</h2>
-                <div className="stkrow">
-                  {T.wish.stk.map((e, i) => <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26 }}>{e}</span>)}
-                </div>
+                <h2 className="ptitle">💭 গোপন ইচ্ছা</h2>
                 <p className="muted">নিজের ইচ্ছা লিখুন। এগুলো পার্টনার দেখবে না। দুজনের একই ইচ্ছা মিললে শুধু তখনই নিচে দেখাবে। 🤫</p>
                 <div className="glass">
                   <input className="inp" placeholder="যেমন: একসাথে সিনেমা দেখা" value={wish} onChange={(e) => setWish(e.target.value)} />
@@ -1342,15 +1307,12 @@ export default function Home() {
 
             {tab === 'gifts' && (
               <>
-                <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>🎁 গিফট ও কয়েন</h2>
-                <div className="stkrow">
-                  {T.gifts.stk.map((e, i) => <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26 }}>{e}</span>)}
-                </div>
+                <h2 className="ptitle">🎁 গিফট ও কয়েন</h2>
                 <div className="coinbar">🪙 {coins}</div>
                 <p className="muted">দুজনেই "হ্যাঁ" দিলে একটি করে গিফট কার্ড ও কয়েন পাবেন। কয়েন দিয়ে পার্টনারকে গিফট দিতে পারবেন।</p>
-                <div>
+                <div className="seg">
                   {[['mine', '🎴 আমার কালেকশন'], ['shop', '🛍️ গিফট শপ']].map(([k, l]) => (
-                    <button key={k} className={'pill' + (gv === k ? ' on' : '')} onClick={() => setGv(k)}>{l}</button>
+                    <button key={k} className={gv === k ? 'on' : ''} onClick={() => setGv(k)}>{l}</button>
                   ))}
                 </div>
 
@@ -1409,7 +1371,7 @@ export default function Home() {
                 || avPresets.find((p) => p.gender === avForm.gender && p.is_active) || {};
               return (
                 <>
-                  <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>👗 সাজ-সজ্জা</h2>
+                  <h2 className="ptitle">👗 সাজ-সজ্জা</h2>
                   <div className="coinbar">🪙 {coins}</div>
                   {(!mine || avEdit) ? (
                     <div className="glass">
@@ -1440,9 +1402,9 @@ export default function Home() {
                     </div>
                   ) : (
                     <>
-                      <div>
-                        <button className={'pill' + (avWho === 'me' ? ' on' : '')} onClick={() => { setAvWho('me'); setDraft(null); }}>আমি</button>
-                        <button className={'pill' + (avWho === 'partner' ? ' on' : '')} disabled={!theirs} onClick={() => { setAvWho('partner'); setDraft(null); }}>
+                      <div className="seg">
+                        <button className={avWho === 'me' ? 'on' : ''} onClick={() => { setAvWho('me'); setDraft(null); }}>আমি</button>
+                        <button className={avWho === 'partner' ? 'on' : ''} disabled={!theirs} onClick={() => { setAvWho('partner'); setDraft(null); }}>
                           পার্টনার{!theirs ? ' (অ্যাভাটার নেই)' : ''}
                         </button>
                       </div>
@@ -1500,10 +1462,7 @@ export default function Home() {
 
             {tab === 'history' && (
               <>
-                <h2 style={{ margin: '10px 0 2px', fontSize: 24 }}>⭐ পছন্দ ও ইতিহাস</h2>
-                <div className="stkrow">
-                  {T.history.stk.map((e, i) => <span key={i} className="sticker" style={{ '--r': (i % 2 ? 9 : -9) + 'deg', fontSize: 26 }}>{e}</span>)}
-                </div>
+                <h2 className="ptitle">⭐ পছন্দ ও ইতিহাস</h2>
                 <div className="h3">⭐ পছন্দের তালিকা</div>
                 {favs.length === 0 && <p className="muted">এখনো কিছু সেভ করা নেই</p>}
                 {favs.map((f) => <div key={f.activity_id} className="item">{f.activities?.title}</div>)}
@@ -1543,12 +1502,15 @@ export default function Home() {
       </div>
 
       {inRoom && myGender && (
-        <nav className="tabs">
-          {Object.entries(T).map(([k, v]) => (
-            <button key={k} className={tab === k ? 'on' : ''} style={{ '--nc': v.color }} onClick={() => setTab(k)}>
-              <span>{v.icon}</span>{v.label}{k === 'chat' && unread > 0 ? <b className="dot">{unread}</b> : <i />}
-            </button>
-          ))}
+        <nav className="dock">
+          {DOCK.map(([k, l]) => {
+            const on = k === 'games' ? isGameTab : tab === k;
+            return (
+              <button key={k} className={on ? 'on' : ''} onClick={() => setTab(k === 'games' ? (isGameTab ? tab : 'dice') : k)}>
+                <DockIcon k={k} />{l}{k === 'chat' && unread > 0 ? <b className="dot">{unread}</b> : null}
+              </button>
+            );
+          })}
         </nav>
       )}
     </div>
