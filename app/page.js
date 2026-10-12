@@ -187,6 +187,9 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [room, setRoom] = useState(null);
   const [code, setCode] = useState('');
+  const [pendingJoin, setPendingJoin] = useState('');
+  const [roomLoaded, setRoomLoaded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [acts, setActs] = useState([]);
   const [cur, setCur] = useState(null);
   const [rolling, setRolling] = useState(false);
@@ -269,6 +272,16 @@ export default function Home() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // ইনভাইট লিংক: /?join=CODE
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('join');
+      const c = (q || localStorage.getItem('pending_join') || '').trim().toUpperCase();
+      if (q) localStorage.setItem('pending_join', c);
+      if (c) { setPendingJoin(c); setCode(c); }
+    } catch (e) { /* চুপচাপ */ }
+  }, []);
+
   useEffect(() => {
     try {
       const g = localStorage.getItem('dice_gender');
@@ -321,7 +334,7 @@ export default function Home() {
     supabase.from('rooms').select('*')
       .or(`partner1_id.eq.${user.id},partner2_id.eq.${user.id}`)
       .order('id', { ascending: false }).limit(1)
-      .then(({ data }) => setRoom(data?.[0] ?? null));
+      .then(({ data }) => { setRoom(data?.[0] ?? null); setRoomLoaded(true); });
     supabase.from('levels').select('*').order('id').then(({ data }) => {
       if (!data?.length) return;
       setLevels((prev) => {
@@ -739,14 +752,44 @@ export default function Home() {
     if (error) return setMsg(error.message);
     setRoom(data);
   };
-  const joinRoom = async () => {
+  const clearPending = () => {
+    setPendingJoin('');
+    try {
+      localStorage.removeItem('pending_join');
+      if (window.location.search) window.history.replaceState({}, '', window.location.pathname);
+    } catch (e) { /* চুপচাপ */ }
+  };
+  const joinRoom = async (c0) => {
     if (!gender) return setMsg('আগে আপনার লিঙ্গ বাছুন');
+    const c = (typeof c0 === 'string' ? c0 : code).trim().toUpperCase();
+    if (!c) return setMsg('রুম কোড দিন');
     const { data, error } = await supabase.from('rooms')
       .update({ partner2_id: user.id, p2_gender: gender })
-      .eq('code', code.trim().toUpperCase()).is('partner2_id', null)
+      .eq('code', c).is('partner2_id', null).neq('partner1_id', user.id)
       .select().single();
-    if (error || !data) return setMsg('রুম পাওয়া যায়নি বা ভরে গেছে');
+    clearPending();
+    if (error || !data) return setMsg('রুম পাওয়া যায়নি, ভরে গেছে, বা এটা আপনারই রুম');
+    setMsg('');
     setRoom(data);
+  };
+  const inviteLink = () => `${window.location.origin}/?join=${room?.code}`;
+  const shareInvite = async () => {
+    const url = inviteLink();
+    const text = '💞 Dice App-এ আমার রুমে জয়েন করুন';
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Dice App', text, url }); return; }
+    } catch (e) { if (e?.name === 'AbortError') return; }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
+    } catch (e) { window.prompt('এই লিংকটা পার্টনারকে পাঠান:', url); }
+  };
+  const copyInvite = async () => {
+    const url = inviteLink();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
+    } catch (e) { window.prompt('এই লিংকটা কপি করে পার্টনারকে পাঠান:', url); }
   };
   const setLevel = async (n) => {
     const col = isP1 ? 'p1_level' : 'p2_level';
@@ -860,6 +903,11 @@ export default function Home() {
     setFavs([]);
     setMsg('✅ পছন্দের তালিকা মুছে ফেলা হয়েছে');
   };
+
+  // ইনভাইট লিংক থেকে এলে লিঙ্গ বাছা হলেই নিজে থেকে জয়েন
+  useEffect(() => {
+    if (pendingJoin && user && adult && roomLoaded && !room && gender) joinRoom(pendingJoin);
+  }, [pendingJoin, user?.id, adult, roomLoaded, room?.id, gender]);
 
   const mm = String(Math.floor(secs / 60)).padStart(2, '0');
   const ss = String(secs % 60).padStart(2, '0');
@@ -989,6 +1037,7 @@ export default function Home() {
         {!user && (
           <div className="glass" style={{ animation: 'pop .4s ease-out' }}>
             <div className="emblem">💋</div>
+            {pendingJoin && <div className="notice" style={{ cursor: 'default' }}>💌 আপনাকে একটি রুমে ইনভাইট করা হয়েছে। লগইন বা সাইন আপ করলেই জয়েন হবে।</div>}
             <p className="muted">লগইন করে শুরু করুন</p>
             <input className="inp" placeholder="ইমেইল" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input className="inp" type="password" placeholder="পাসওয়ার্ড (৬+ অক্ষর)" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -1010,12 +1059,13 @@ export default function Home() {
 
         {user && adult && !room && (
           <div className="glass" style={{ animation: 'pop .4s ease-out' }}>
+            {pendingJoin && <div className="notice" style={{ cursor: 'default' }}>💌 ইনভাইট লিংক থেকে এসেছেন। আপনার লিঙ্গ বাছুন, নিজে থেকেই রুমে জয়েন হবে।</div>}
             <div className="muted">আপনার লিঙ্গ বাছুন (ডাইসের অপশন মেলাতে লাগে)</div>
             <GenderPills value={gender} onPick={rememberGender} />
             <button className="btn big" onClick={createRoom}>🌹 নতুন রুম বানান</button>
             <p className="muted">অথবা পার্টনারের রুম কোড দিয়ে জয়েন করুন</p>
             <input className="inp" placeholder="রুম কোড" value={code} onChange={(e) => setCode(e.target.value)} />
-            <button className="btn ghost" onClick={joinRoom}>জয়েন করুন</button>
+            <button className="btn ghost" onClick={() => joinRoom()}>জয়েন করুন</button>
           </div>
         )}
 
@@ -1034,6 +1084,12 @@ export default function Home() {
               <span className="muted">রুম কোড</span><span className="code">{room.code}</span>
               <div>
                 {!room.partner2_id && <span className="muted">⏳ পার্টনারের জন্য অপেক্ষা...</span>}
+                {!room.partner2_id && (
+                  <div style={{ margin: '6px 0' }}>
+                    <button className="btn tiny" onClick={shareInvite}>📤 ইনভাইট লিংক পাঠান</button>
+                    <button className="btn ghost tiny" onClick={copyInvite}>{copied ? '✅ কপি হয়েছে' : '🔗 লিংক কপি'}</button>
+                  </div>
+                )}
                 {tab !== 'home' && <button className="btn ghost tiny" onClick={() => setTab('home')}>🏠 হোম</button>}
                 <button className="btn ghost tiny" onClick={leaveRoom}>← রুম বদলান</button>
               </div>
