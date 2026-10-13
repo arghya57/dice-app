@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import Avatar, { SLOTS, SHAPES, BODY_KEYS } from '../../lib/Avatar';
 
-const KINDS = { action: 'অ্যাকশন', modifier: 'মডিফায়ার (কোথায়/কীভাবে)', truth: 'ট্রুথ', dare: 'ডেয়ার', card: 'কার্ড', wheel: 'চাকার সেগমেন্ট' };
+const KINDS = { action: 'অ্যাকশন', modifier: 'মডিফায়ার (কোথায়/কীভাবে)', truth: 'ট্রুথ', dare: 'ডেয়ার', card: 'কার্ড', wheel: 'চাকার সেগমেন্ট', scratch: 'স্ক্র্যাচ কার্ড' };
 const DEF_LEVELS = {
   1: { name: 'লেভেল ১ · হালকা', icon: '🌸' },
   2: { name: 'লেভেল ২ · রোমান্টিক', icon: '💋' },
@@ -32,6 +32,19 @@ const WHEEL_DEFAULTS = [
   [3, 'নেতৃত্ব | পার্টনার ৫ মিনিট পুরো নেতৃত্ব দেবে'], [3, 'নতুন জায়গা | ঘরের অন্য জায়গায় ঘনিষ্ঠ হোন'],
   [3, 'গোপন কথা | কানে খোলামেলা একটা ইচ্ছা বলুন'], [3, 'আপনার পছন্দ | পার্টনার একটা ইচ্ছা বেছে নেবে, আপনি রাজি হলে পূরণ'],
 ];
+// স্ক্র্যাচ কার্ডের ডিফল্ট: [লেভেল, 'কার্ডের শিরোনাম | ভেতরের বার্তা']
+const SCRATCH_DEFAULTS = [
+  [1, 'মিষ্টি চুমু | পার্টনারের গালে ও কপালে ৫টি চুমু দিন'], [1, 'প্রশংসা | আজ আমার সবচেয়ে ভালো লাগার ৩টা জিনিস বলুন'],
+  [1, 'আলিঙ্গন | ১ মিনিট কথা না বলে জড়িয়ে থাকুন'], [1, 'ম্যাসাজ | ৩ মিনিট কাঁধে ম্যাসাজ দিন'],
+  [1, 'গান | পার্টনারের প্রিয় গান বাজিয়ে একসাথে নাচুন'], [1, 'ফিসফিস | কানে ফিসফিস করে একটা মিষ্টি কথা বলুন'],
+  [2, 'চোখ বাঁধা | ৫ মিনিট চোখ বেঁধে আদর ও অনুমানের খেলা'], [2, 'রোলপ্লে | অচেনা দুজনের প্রথম দেখা অভিনয় করুন'],
+  [2, 'তেল ম্যাসাজ | পিঠ ও কোমরে হালকা গরম তেলে ম্যাসাজ'], [2, 'টিজ | চুমু আর স্পর্শ, তবে এখনই বেশি নয়'],
+  [2, 'ফ্যান্টাসি | নিজের একটা গোপন ইচ্ছা ফিসফিস করে বলুন'], [2, 'ড্রেসআপ | পার্টনারের পছন্দের পোশাকে সাজুন'],
+  [3, 'শাওয়ার | একসাথে গরম শাওয়ারে ঘনিষ্ঠ হোন'], [3, 'ধীর নাচ | আলো কমিয়ে ধীরে ধীরে নাচতে নাচতে পোশাক খুলুন'],
+  [3, 'নেতৃত্ব | আজ রাতে পার্টনার ১০ মিনিট পুরো নেতৃত্ব দেবে'], [3, 'নতুন জায়গা | ঘরের অন্য কোনো জায়গায় ঘনিষ্ঠ হোন'],
+  [3, 'প্রত্যাশা | কাছে এনে থেমে যান, প্রত্যাশা বাড়ান'], [3, 'গোপন কথা | কানে খোলামেলা একটা ইচ্ছা বলুন'],
+];
+const SCRATCH_DEF = { text: '✨ স্ক্র্যাচ করুন', threshold: 55, colors: { 1: '#d9b36a', 2: '#c9788a', 3: '#8e2a3c' } };
 const WHEEL_COLORS = {
   1: ['#f3d9b1', '#e8b9a0', '#d9c28a', '#e5a9a9'],
   2: ['#d9a35f', '#c9788a', '#b98a4a', '#a65f78'],
@@ -70,7 +83,7 @@ const NAV = [
   { key: 'home', icon: '🏠', label: 'ড্যাশবোর্ড', desc: 'পুরো অ্যাপের এক নজরে অবস্থা, আর কোন কাজ বাকি তার তালিকা।',
     subs: [['home', '📊 ওভারভিউ']] },
   { key: 'games', icon: '🎮', label: 'গেম', desc: 'ডাইস, চাকা আর কার্ড/ট্রুথ/ডেয়ারের কনটেন্ট এখান থেকে নিয়ন্ত্রণ করুন।',
-    subs: [['dice', '🎲 ডাইস বক্স'], ['wheel', '🎡 ইচ্ছার চাকা'], ['all', '📋 কার্ড · ট্রুথ · ডেয়ার']] },
+    subs: [['dice', '🎲 ডাইস বক্স'], ['wheel', '🎡 ইচ্ছার চাকা'], ['scratch', '🎟️ স্ক্র্যাচ কার্ড'], ['all', '📋 কার্ড · ট্রুথ · ডেয়ার']] },
   { key: 'gifts', icon: '🎁', label: 'গিফট', desc: 'গিফট কার্ড, মিস্ট্রি বক্স, কয়েনের নিয়ম আর ইউজারকে সরাসরি উপহার দেওয়া।',
     subs: [['gifts', '🎴 গিফট কার্ড'], ['coins', '🪙 কয়েন ও উপহার']] },
   { key: 'avatar', icon: '👗', label: 'অ্যাভাটার', desc: 'মডেলের শরীরের গড়ন, পোশাক, থিম সেট আর ইউজারকে পোশাক উপহার।',
@@ -121,18 +134,6 @@ const ADM_CSS = `
 @keyframes admpop{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 `;
 
-// GIF/অ্যানিমেটেড ছবি যেমন আছে তেমনই আপলোড হবে (ছোট করলে অ্যানিমেশন নষ্ট হয়), বাকি ছবি JPEG হবে
-const GIF_MAX = 6 * 1024 * 1024; // GIF সর্বোচ্চ ৬MB (ফ্রি স্টোরেজ ও দ্রুত লোডের জন্য)
-const isGif = (f) => f && (f.type === 'image/gif' || /\.gif$/i.test(f.name || ''));
-const prepImage = async (file) => {
-  if (isGif(file)) {
-    if (file.size > GIF_MAX) throw new Error('GIF ৬MB-এর বেশি বড়। ছোট করে আবার দিন');
-    return { blob: file, type: 'image/gif', ext: 'gif' };
-  }
-  const blob = await shrink(file);
-  return { blob, type: 'image/jpeg', ext: 'jpg' };
-};
-
 // ছবি ছোট করে JPEG বানায় (ফ্রি স্টোরেজ বাঁচাতে + দ্রুত লোডের জন্য)
 const shrink = (file) => new Promise((res, rej) => {
   const img = new Image();
@@ -164,6 +165,9 @@ export default function Admin() {
   const [view, setView] = useState('home');
   const [wf, setWf] = useState({ label: '', detail: '', level: 1, seconds: 0 });
   const [wLevel, setWLevel] = useState(1);
+  const [sf, setSf] = useState({ label: '', detail: '', level: 1, seconds: 0 });
+  const [sLevel, setSLevel] = useState(1);
+  const [scfg, setScfg] = useState(SCRATCH_DEF);
   const [diceG, setDiceG] = useState('any');
   const [qa, setQa] = useState({ action: { title: '', level: 1 }, modifier: { title: '', level: 1 } });
   const [levels, setLevels] = useState(DEF_LEVELS);
@@ -206,6 +210,8 @@ export default function Admin() {
         return n;
       });
     }
+    const { data: st } = await supabase.from('app_settings').select('value').eq('key', 'scratch').maybeSingle();
+    if (st?.value) setScfg({ ...SCRATCH_DEF, ...st.value, colors: { ...SCRATCH_DEF.colors, ...(st.value.colors || {}) } });
     const { data: gs } = await supabase.from('gifts').select('*').order('level').order('id');
     setGifts(gs || []);
     const { data: cr } = await supabase.from('coin_rules').select('*').order('level');
@@ -233,8 +239,7 @@ export default function Admin() {
   const pickFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) { setMsg('শুধু ছবি বা GIF দিন'); return; }
-    if (isGif(f) && f.size > GIF_MAX) { setMsg('GIF ৬MB-এর বেশি বড়। ছোট করে দিন'); return; }
+    if (!f.type.startsWith('image/')) { setMsg('শুধু ছবি দিন'); return; }
     if (f.size > 15 * 1024 * 1024) { setMsg('ছবি ১৫MB-এর বেশি বড়'); return; }
     setMsg('');
     setFile(f);
@@ -249,11 +254,11 @@ export default function Admin() {
     if (!form.title.trim()) return setMsg('নাম লিখুন');
     setBusy(true);
     try {
-      let image_url = form.image_url || null;
-      if (file) {
-        const { blob, type, ext } = await prepImage(file);
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: type });
+      let image_url = form.kind === 'card' ? (form.image_url || null) : null;
+      if (file && form.kind === 'card') {
+        const blob = await shrink(file);
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
         if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
         image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       }
@@ -333,8 +338,7 @@ export default function Admin() {
   const pickGiftFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) return setMsg('শুধু ছবি বা GIF দিন');
-    if (isGif(f) && f.size > GIF_MAX) return setMsg('GIF ৬MB-এর বেশি বড়। ছোট করে দিন');
+    if (!f.type.startsWith('image/')) return setMsg('শুধু ছবি দিন');
     if (f.size > 15 * 1024 * 1024) return setMsg('ছবি ১৫MB-এর বেশি বড়');
     setMsg(''); setGFile(f); setGPrev(URL.createObjectURL(f));
   };
@@ -347,9 +351,9 @@ export default function Admin() {
     try {
       let image_url = gf.image_url || null;
       if (gFile) {
-        const { blob, type, ext } = await prepImage(gFile);
-        const path = `gift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: type });
+        const blob = await shrink(gFile);
+        const path = `gift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
         if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
         image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       }
@@ -447,9 +451,9 @@ export default function Admin() {
     try {
       let image_url = itf.image_url || null;
       if (iFile) {
-        const { blob, type, ext } = await prepImage(iFile);
-        const path = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: type });
+        const blob = await shrink(iFile);
+        const path = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
         if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
         image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       }
@@ -501,6 +505,36 @@ export default function Admin() {
     if (!giveItem.email.trim() || !giveItem.item) return setMsg('ইমেইল ও আইটেম বাছুন');
     const { error } = await supabase.rpc('admin_give_item', { p_email: giveItem.email, p_item: Number(giveItem.item) });
     setMsg(error ? error.message : '✅ আইটেম দেওয়া হয়েছে');
+  };
+
+  // ---------- স্ক্র্যাচ কার্ড ----------
+  const addScratch = async () => {
+    if (!sf.label.trim()) return setMsg('কার্ডের শিরোনাম লিখুন');
+    const title = sf.detail.trim() ? `${sf.label.trim()} | ${sf.detail.trim()}` : sf.label.trim();
+    const { error } = await supabase.from('activities').insert({
+      title, kind: 'scratch', level: Number(sf.level), mood: 'any', seconds: Number(sf.seconds) || 0, gender: 'any', image_url: null,
+    });
+    if (error) return setMsg(error.message);
+    setSf((p) => ({ ...p, label: '', detail: '' }));
+    setMsg('✅ স্ক্র্যাচ কার্ড যোগ হয়েছে');
+    load();
+  };
+  const addScratchDefaults = async () => {
+    const have = list.filter((x) => x.kind === 'scratch').length;
+    if (have > 0 && !confirm(`আগে থেকে ${have}টি কার্ড আছে। ডিফল্টগুলো আরও যোগ করবেন?`)) return;
+    const rows = SCRATCH_DEFAULTS.map(([level, title]) => ({ title, kind: 'scratch', level, mood: 'any', seconds: 0, gender: 'any', image_url: null }));
+    const { error } = await supabase.from('activities').insert(rows);
+    setMsg(error ? error.message : '✅ ডিফল্ট স্ক্র্যাচ কার্ড যোগ হয়েছে');
+    load();
+  };
+  const saveScratchCfg = async () => {
+    const value = {
+      text: (scfg.text || '').trim() || SCRATCH_DEF.text,
+      threshold: Math.min(90, Math.max(20, Number(scfg.threshold) || 55)),
+      colors: scfg.colors,
+    };
+    const { error } = await supabase.from('app_settings').upsert({ key: 'scratch', value }, { onConflict: 'key' });
+    setMsg(error ? error.message : '✅ স্ক্র্যাচ সেটিংস সেভ হয়েছে');
   };
 
   // ---------- চাকা ----------
@@ -615,8 +649,9 @@ export default function Admin() {
         const td = list.filter((x) => x.kind === 'truth' || x.kind === 'dare');
         const cards = list.filter((x) => x.kind === 'card');
         const wheel = list.filter((x) => x.kind === 'wheel');
+        const scratch = list.filter((x) => x.kind === 'scratch');
         const stats = [
-          ['🎲', 'ডাইস অপশন', dice, 'dice'], ['🎡', 'চাকার সেগমেন্ট', wheel, 'wheel'],
+          ['🎲', 'ডাইস অপশন', dice, 'dice'], ['🎡', 'চাকার সেগমেন্ট', wheel, 'wheel'], ['🎟️', 'স্ক্র্যাচ কার্ড', scratch, 'scratch'],
           ['💬', 'ট্রুথ · ডেয়ার', td, 'all'], ['🃏', 'কার্ড', cards, 'all'],
           ['🎁', 'গিফট কার্ড', gifts, 'gifts'], ['👙', 'পোশাক', aItems, 'avatar:items'],
           ['🧍', 'বডি গড়ন', presets, 'avatar:presets'], ['🎭', 'থিম সেট', aSets, 'avatar:sets'],
@@ -625,6 +660,10 @@ export default function Admin() {
         [1, 2, 3].forEach((n) => {
           const c = wheel.filter((x) => x.level === n && x.is_active).length;
           if (c < 3) warn.push(['wheel', `🎡 চাকা · ${lvName(n)}: ${c}টি সেগমেন্ট আছে (কমপক্ষে ৩টি দরকার)`]);
+        });
+        [1, 2, 3].forEach((n) => {
+          const c = scratch.filter((x) => x.level === n && x.is_active).length;
+          if (c < 3) warn.push(['scratch', `🎟️ স্ক্র্যাচ · ${lvName(n)}: ${c}টি কার্ড আছে (কমপক্ষে ৩টি দরকার)`]);
         });
         [1, 2, 3].forEach((n) => {
           if (!gifts.some((g) => g.kind === 'gift' && g.level === n && g.is_active)) warn.push(['gifts', `🎁 ${lvName(n)} লেভেলে কোনো গিফট কার্ড নেই`]);
@@ -737,7 +776,7 @@ export default function Admin() {
             )}
             <label style={lbl}>দাম (কয়েন, ০ = শপে বিক্রি হবে না)</label>
             <input style={inp} type="number" min="0" value={gf.price} onChange={(e) => setG('price', e.target.value)} />
-            <label style={lbl}>কার্ডের ছবি বা GIF (GIF সর্বোচ্চ ৬MB)</label>
+            <label style={lbl}>কার্ডের ছবি</label>
             {(gPrev || gf.image_url) && (
               <div>
                 <img src={gPrev || gf.image_url} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, margin: '6px 0' }} />
@@ -983,6 +1022,67 @@ export default function Admin() {
         );
       })()}
 
+      {view === 'scratch' && (() => {
+        const cards = list.filter((x) => x.kind === 'scratch' && x.level === Number(sLevel)).sort((x, y) => x.id - y.id);
+        const colors = scfg.colors || {};
+        return (
+          <>
+            <div style={panel}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>🎨 স্ক্র্যাচ সেটিংস</div>
+              <label style={lbl}>ফয়েলের ওপরের লেখা</label>
+              <input style={inp} value={scfg.text || ''} onChange={(e) => setScfg((p) => ({ ...p, text: e.target.value }))} />
+              <label style={lbl}>কতটা মুছলে কার্ড নিজে খুলে যাবে: {scfg.threshold}%</label>
+              <input style={{ width: '100%' }} type="range" min="20" max="90" value={scfg.threshold} onChange={(e) => setScfg((p) => ({ ...p, threshold: Number(e.target.value) }))} />
+              <label style={lbl}>ফয়েলের রং (লেভেল অনুযায়ী)</label>
+              {[1, 2, 3].map((n) => (
+                <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0' }}>
+                  <input type="color" value={colors[n] || '#d9b36a'} style={{ width: 52, height: 40, border: 'none', background: 'none', padding: 0 }}
+                    onChange={(e) => setScfg((p) => ({ ...p, colors: { ...p.colors, [n]: e.target.value } }))} />
+                  <div style={{ flex: 1, height: 40, borderRadius: 12, display: 'grid', placeItems: 'center', color: 'rgba(60,35,5,.8)', fontWeight: 700,
+                    background: `linear-gradient(135deg, ${colors[n] || '#d9b36a'}, #fff6d8 50%, ${colors[n] || '#d9b36a'})` }}>
+                    {scfg.text}
+                  </div>
+                  <small style={{ width: 90 }}>{lvName(n)}</small>
+                </div>
+              ))}
+              <button style={btn} onClick={saveScratchCfg}>💾 সেটিংস সেভ করুন</button>
+            </div>
+
+            <div>
+              {[1, 2, 3].map((n) => <button key={n} style={chip(Number(sLevel) === n)} onClick={() => { setSLevel(n); setSf((p) => ({ ...p, level: n })); }}>{lvName(n)}</button>)}
+            </div>
+            <p style={{ fontSize: 13, color: '#c9a5b4' }}>
+              লেখার ধরন: <b>শিরোনাম | ভেতরের বার্তা</b>। ফয়েল সরালে প্রথমে শিরোনাম, তার নিচে বার্তা দেখা যাবে।
+            </p>
+            <div style={panel}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f2d98a' }}>➕ নতুন কার্ড ({cards.filter((c) => c.is_active).length}টি চালু)</div>
+              <input style={inp} placeholder="শিরোনাম, যেমন: ম্যাসাজ" value={sf.label} onChange={(e) => setSf((p) => ({ ...p, label: e.target.value }))} />
+              <input style={inp} placeholder="ভেতরের বার্তা, যেমন: ৫ মিনিট কাঁধে ম্যাসাজ দিন" value={sf.detail} onChange={(e) => setSf((p) => ({ ...p, detail: e.target.value }))} />
+              <label style={lbl}>টাইমার সেকেন্ড (০ = নেই)</label>
+              <input style={inp} type="number" min="0" value={sf.seconds} onChange={(e) => setSf((p) => ({ ...p, seconds: e.target.value }))} />
+              <button style={btn} onClick={addScratch}>➕ {lvName(sLevel)} লেভেলে যোগ করুন</button>
+              <button style={{ ...btn, background: '#3a3340' }} onClick={addScratchDefaults}>✨ ডিফল্ট ১৮টি যোগ করুন</button>
+            </div>
+            {cards.map((s) => {
+              const p = wheelParts(s.title);
+              return (
+                <div key={s.id} style={{ ...panel, opacity: s.is_active ? 1 : 0.5 }}>
+                  <div style={{ fontSize: 16 }}>🎟️ {p.label}</div>
+                  {p.detail && <small style={{ color: '#e6d6b8' }}>{p.detail}</small>}
+                  <div><small>{s.seconds > 0 ? `${s.seconds}সে · ` : ''}{s.is_active ? 'চালু' : 'বন্ধ'}</small></div>
+                  <div>
+                    <button style={{ ...btn, background: '#35507a', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(s)}>এডিট</button>
+                    <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(s)}>{s.is_active ? 'বন্ধ' : 'চালু'}</button>
+                    <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => del(s)}>মুছুন</button>
+                  </div>
+                </div>
+              );
+            })}
+            {cards.length === 0 && <small style={{ color: '#c9a5b4' }}>এই লেভেলে এখনো কোনো কার্ড নেই</small>}
+          </>
+        );
+      })()}
+
       {view === 'levels' && (
         <>
           <p style={{ fontSize: 13, color: '#aaa' }}>প্রতিটি লেভেলের আইকন ও নাম বদলান। অ্যাপের সব জায়গায় এই নাম দেখাবে।</p>
@@ -1030,9 +1130,9 @@ export default function Admin() {
       <label style={lbl}>টাইমার সেকেন্ড (০ = টাইমার নেই)</label>
       <input style={inp} type="number" min="0" value={form.seconds} onChange={(e) => set('seconds', e.target.value)} />
 
-      {(
+      {form.kind === 'card' && (
         <div>
-          <label style={lbl}>ছবি বা GIF (ঐচ্ছিক, GIF সর্বোচ্চ ৬MB। ফলাফলে এটা দেখাবে)</label>
+          <label style={lbl}>কার্ডের ছবি (ঐচ্ছিক)</label>
           {(preview || form.image_url) && (
             <div>
               <img src={preview || form.image_url} alt="" style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 10, margin: '6px 0' }} />
