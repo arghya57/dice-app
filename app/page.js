@@ -50,7 +50,7 @@ const HERO_STICKERS = [['💏', -12], ['😍', 8], ['👩‍❤️‍💋‍👨
 
 
 // ---------- স্ক্র্যাচ কার্ড ----------
-const SCRATCH_DEF = { text: '✨ স্ক্র্যাচ করুন', threshold: 55, colors: { 1: '#d9b36a', 2: '#c9788a', 3: '#8e2a3c' } };
+const SCRATCH_DEF = { text: '✨ স্ক্র্যাচ করুন', threshold: 55, imageMode: 'above', colors: { 1: '#d9b36a', 2: '#c9788a', 3: '#8e2a3c' } };
 
 function ScratchCard({ children, cfg, level, onReveal }) {
   const wrap = useRef(null);
@@ -60,24 +60,34 @@ function ScratchCard({ children, cfg, level, onReveal }) {
 
   useEffect(() => {
     const c = cv.current; const w = wrap.current;
-    if (!c || !w) return;
-    const dpr = window.devicePixelRatio || 1;
-    const W = w.offsetWidth; const H = w.offsetHeight;
-    c.width = W * dpr; c.height = H * dpr;
-    const x = c.getContext('2d');
-    x.scale(dpr, dpr);
-    const base = (cfg.colors && cfg.colors[level]) || '#d9b36a';
-    const g = x.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, base); g.addColorStop(0.5, '#fff6d8'); g.addColorStop(1, base);
-    x.fillStyle = g; x.fillRect(0, 0, W, H);
-    for (let i = 0; i < 180; i++) {
-      x.fillStyle = `rgba(255,255,255,${Math.random() * 0.35})`;
-      x.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+    if (!c || !w) return undefined;
+    const paint = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const W = w.offsetWidth; const H = w.offsetHeight;
+      if (!W || !H) return;
+      c.width = W * dpr; c.height = H * dpr;
+      const x = c.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const base = (cfg.colors && cfg.colors[level]) || '#d9b36a';
+      const g = x.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, base); g.addColorStop(0.5, '#fff6d8'); g.addColorStop(1, base);
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      for (let i = 0; i < 180; i++) {
+        x.fillStyle = `rgba(255,255,255,${Math.random() * 0.35})`;
+        x.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+      }
+      x.fillStyle = 'rgba(60,35,5,.75)';
+      x.font = '700 18px "Hind Siliguri",sans-serif';
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText(cfg.text || SCRATCH_DEF.text, W / 2, H / 2);
+    };
+    paint();
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => { if (!st.current.moved) paint(); });
+      ro.observe(w);
     }
-    x.fillStyle = 'rgba(60,35,5,.75)';
-    x.font = '700 18px "Hind Siliguri",sans-serif';
-    x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText(cfg.text || SCRATCH_DEF.text, W / 2, H / 2);
+    return () => { if (ro) ro.disconnect(); };
   }, [cfg, level]);
 
   const finish = () => {
@@ -99,6 +109,7 @@ function ScratchCard({ children, cfg, level, onReveal }) {
     if (!c) return;
     const r = c.getBoundingClientRect();
     const px = e.clientX - r.left; const py = e.clientY - r.top;
+    st.current.moved = true;
     const x = c.getContext('2d');
     x.globalCompositeOperation = 'destination-out';
     x.lineWidth = 34; x.lineCap = 'round'; x.lineJoin = 'round';
@@ -1306,7 +1317,7 @@ export default function Home() {
                   <>
                     <div className="res" style={{ animation: tab === 'card' ? 'flip .6s ease-out' : 'pop .4s ease-out' }}>
                       <div className="lvbadge">{lvLabel(resLevel)}</div>
-                      {cur.a?.image_url && <img src={cur.a.image_url} alt="" />}
+                      {cur.a?.image_url && tab !== 'scratch' && <img src={cur.a.image_url} alt="" />}
                       {tab === 'dice' ? (
                         <>
                           {cur.by && (
@@ -1326,8 +1337,22 @@ export default function Home() {
                             : tab === 'scratch'
                               ? (
                                 <ScratchCard key={cur.id} cfg={scratchCfg} level={cur.a?.level || 1} onReveal={() => setScratched(true)}>
-                                  <div className="muted">🎟️ {wheelParts(cur.a?.title).label}</div>
-                                  {wheelParts(cur.a?.title).detail}
+                                  {scratchCfg.imageMode === 'cover' && cur.a?.image_url ? (
+                                    <div style={{ height: 260, margin: '-14px -8px', backgroundImage: `url(${cur.a.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                                      <div style={{ padding: '30px 12px 12px', background: 'linear-gradient(transparent, rgba(0,0,0,.8))', textShadow: '0 2px 6px #000' }}>
+                                        <div className="muted" style={{ color: '#ffe9b0' }}>🎟️ {wheelParts(cur.a?.title).label}</div>
+                                        {wheelParts(cur.a?.title).detail}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {cur.a?.image_url && (
+                                        <div style={{ height: 220, borderRadius: 14, marginBottom: 10, backgroundImage: `url(${cur.a.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                                      )}
+                                      <div className="muted">🎟️ {wheelParts(cur.a?.title).label}</div>
+                                      {wheelParts(cur.a?.title).detail}
+                                    </>
+                                  )}
                                 </ScratchCard>
                               )
                               : cur.a?.title}
