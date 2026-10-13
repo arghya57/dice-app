@@ -44,7 +44,7 @@ const SCRATCH_DEFAULTS = [
   [3, 'নেতৃত্ব | আজ রাতে পার্টনার ১০ মিনিট পুরো নেতৃত্ব দেবে'], [3, 'নতুন জায়গা | ঘরের অন্য কোনো জায়গায় ঘনিষ্ঠ হোন'],
   [3, 'প্রত্যাশা | কাছে এনে থেমে যান, প্রত্যাশা বাড়ান'], [3, 'গোপন কথা | কানে খোলামেলা একটা ইচ্ছা বলুন'],
 ];
-const SCRATCH_DEF = { text: '✨ স্ক্র্যাচ করুন', threshold: 55, colors: { 1: '#d9b36a', 2: '#c9788a', 3: '#8e2a3c' } };
+const SCRATCH_DEF = { text: '✨ স্ক্র্যাচ করুন', threshold: 55, imageMode: 'above', colors: { 1: '#d9b36a', 2: '#c9788a', 3: '#8e2a3c' } };
 const WHEEL_COLORS = {
   1: ['#f3d9b1', '#e8b9a0', '#d9c28a', '#e5a9a9'],
   2: ['#d9a35f', '#c9788a', '#b98a4a', '#a65f78'],
@@ -152,6 +152,19 @@ const shrink = (file) => new Promise((res, rej) => {
   img.src = url;
 });
 
+// ছবি/GIF আপলোড: GIF হলে মূল ফাইলই (অ্যানিমেশন ঠিক রাখতে), অন্য ছবি ছোট করে JPEG
+const uploadMedia = async (file) => {
+  const isGif = file.type === 'image/gif';
+  if (!file.type.startsWith('image/')) throw new Error('শুধু ছবি বা GIF দিন');
+  if (isGif && file.size > 6 * 1024 * 1024) throw new Error('GIF ৬MB-এর বেশি বড়। ছোট করে আবার দিন');
+  if (file.size > 15 * 1024 * 1024) throw new Error('ছবি ১৫MB-এর বেশি বড়');
+  const blob = isGif ? file : await shrink(file);
+  const path = `scr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${isGif ? 'gif' : 'jpg'}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: isGif ? 'image/gif' : 'image/jpeg' });
+  if (error) throw new Error('ছবি আপলোড হয়নি: ' + error.message);
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+};
+
 export default function Admin() {
   const [ok, setOk] = useState(null);
   const [list, setList] = useState([]);
@@ -168,6 +181,8 @@ export default function Admin() {
   const [sf, setSf] = useState({ label: '', detail: '', level: 1, seconds: 0 });
   const [sLevel, setSLevel] = useState(1);
   const [scfg, setScfg] = useState(SCRATCH_DEF);
+  const [sFile, setSFile] = useState(null);
+  const [sPrev, setSPrev] = useState('');
   const [diceG, setDiceG] = useState('any');
   const [qa, setQa] = useState({ action: { title: '', level: 1 }, modifier: { title: '', level: 1 } });
   const [levels, setLevels] = useState(DEF_LEVELS);
@@ -254,13 +269,9 @@ export default function Admin() {
     if (!form.title.trim()) return setMsg('নাম লিখুন');
     setBusy(true);
     try {
-      let image_url = form.kind === 'card' ? (form.image_url || null) : null;
-      if (file && form.kind === 'card') {
-        const blob = await shrink(file);
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
-        if (upErr) { setMsg('ছবি আপলোড হয়নি: ' + upErr.message); return; }
-        image_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      let image_url = ['card', 'scratch'].includes(form.kind) ? (form.image_url || null) : null;
+      if (file && ['card', 'scratch'].includes(form.kind)) {
+        image_url = await uploadMedia(file);
       }
       const row = {
         title: form.title.trim(),
@@ -511,12 +522,46 @@ export default function Admin() {
   const addScratch = async () => {
     if (!sf.label.trim()) return setMsg('কার্ডের শিরোনাম লিখুন');
     const title = sf.detail.trim() ? `${sf.label.trim()} | ${sf.detail.trim()}` : sf.label.trim();
-    const { error } = await supabase.from('activities').insert({
-      title, kind: 'scratch', level: Number(sf.level), mood: 'any', seconds: Number(sf.seconds) || 0, gender: 'any', image_url: null,
-    });
-    if (error) return setMsg(error.message);
-    setSf((p) => ({ ...p, label: '', detail: '' }));
-    setMsg('✅ স্ক্র্যাচ কার্ড যোগ হয়েছে');
+    setBusy(true);
+    try {
+      const image_url = sFile ? await uploadMedia(sFile) : null;
+      const { error } = await supabase.from('activities').insert({
+        title, kind: 'scratch', level: Number(sf.level), mood: 'any', seconds: Number(sf.seconds) || 0, gender: 'any', image_url,
+      });
+      if (error) return setMsg(error.message);
+      setSf((p) => ({ ...p, label: '', detail: '' }));
+      setSFile(null); setSPrev('');
+      setMsg('✅ স্ক্র্যাচ কার্ড যোগ হয়েছে');
+      load();
+    } catch (e) {
+      setMsg(e.message || 'কিছু একটা ভুল হয়েছে');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const pickScratchFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return setMsg('শুধু ছবি বা GIF দিন');
+    setSFile(f); setSPrev(URL.createObjectURL(f));
+  };
+  const setScratchImage = async (s, f) => {
+    if (!f) return;
+    setBusy(true);
+    try {
+      const url = await uploadMedia(f);
+      const { error } = await supabase.from('activities').update({ image_url: url }).eq('id', s.id);
+      setMsg(error ? error.message : '✅ ছবি আপডেট হয়েছে');
+      load();
+    } catch (e) {
+      setMsg(e.message || 'কিছু একটা ভুল হয়েছে');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const clearScratchImage = async (s) => {
+    const { error } = await supabase.from('activities').update({ image_url: null }).eq('id', s.id);
+    setMsg(error ? error.message : '✅ ছবি সরানো হয়েছে');
     load();
   };
   const addScratchDefaults = async () => {
@@ -531,6 +576,7 @@ export default function Admin() {
     const value = {
       text: (scfg.text || '').trim() || SCRATCH_DEF.text,
       threshold: Math.min(90, Math.max(20, Number(scfg.threshold) || 55)),
+      imageMode: scfg.imageMode === 'cover' ? 'cover' : 'above',
       colors: scfg.colors,
     };
     const { error } = await supabase.from('app_settings').upsert({ key: 'scratch', value }, { onConflict: 'key' });
@@ -1033,6 +1079,11 @@ export default function Admin() {
               <input style={inp} value={scfg.text || ''} onChange={(e) => setScfg((p) => ({ ...p, text: e.target.value }))} />
               <label style={lbl}>কতটা মুছলে কার্ড নিজে খুলে যাবে: {scfg.threshold}%</label>
               <input style={{ width: '100%' }} type="range" min="20" max="90" value={scfg.threshold} onChange={(e) => setScfg((p) => ({ ...p, threshold: Number(e.target.value) }))} />
+              <label style={lbl}>ছবি/GIF কীভাবে দেখাবে</label>
+              <select style={inp} value={scfg.imageMode || 'above'} onChange={(e) => setScfg((p) => ({ ...p, imageMode: e.target.value }))}>
+                <option value="above">ছবি ওপরে, নিচে লেখা</option>
+                <option value="cover">ছবি পুরো কার্ড জুড়ে, লেখা ওপরে বসবে</option>
+              </select>
               <label style={lbl}>ফয়েলের রং (লেভেল অনুযায়ী)</label>
               {[1, 2, 3].map((n) => (
                 <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0' }}>
@@ -1060,17 +1111,31 @@ export default function Admin() {
               <input style={inp} placeholder="ভেতরের বার্তা, যেমন: ৫ মিনিট কাঁধে ম্যাসাজ দিন" value={sf.detail} onChange={(e) => setSf((p) => ({ ...p, detail: e.target.value }))} />
               <label style={lbl}>টাইমার সেকেন্ড (০ = নেই)</label>
               <input style={inp} type="number" min="0" value={sf.seconds} onChange={(e) => setSf((p) => ({ ...p, seconds: e.target.value }))} />
-              <button style={btn} onClick={addScratch}>➕ {lvName(sLevel)} লেভেলে যোগ করুন</button>
+              <label style={lbl}>ছবি বা GIF (ঐচ্ছিক, স্ক্র্যাচ করলে বেরোবে। GIF সর্বোচ্চ ৬MB)</label>
+              {sPrev && (
+                <div>
+                  <div style={{ height: 160, borderRadius: 12, margin: '6px 0', backgroundImage: `url(${sPrev})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                  <button style={{ ...btn, background: '#7d1d3a' }} onClick={() => { setSFile(null); setSPrev(''); }}>ছবি সরান</button>
+                </div>
+              )}
+              <input style={{ ...inp, background: 'rgba(0,0,0,.35)', color: '#fff' }} type="file" accept="image/*" onChange={pickScratchFile} />
+              <button style={btn} disabled={busy} onClick={addScratch}>{busy ? 'অপেক্ষা করুন...' : `➕ ${lvName(sLevel)} লেভেলে যোগ করুন`}</button>
               <button style={{ ...btn, background: '#3a3340' }} onClick={addScratchDefaults}>✨ ডিফল্ট ১৮টি যোগ করুন</button>
             </div>
             {cards.map((s) => {
               const p = wheelParts(s.title);
               return (
                 <div key={s.id} style={{ ...panel, opacity: s.is_active ? 1 : 0.5 }}>
+                  {s.image_url && <div style={{ width: 84, height: 84, borderRadius: 12, float: 'right', marginLeft: 10, backgroundImage: `url(${s.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
                   <div style={{ fontSize: 16 }}>🎟️ {p.label}</div>
                   {p.detail && <small style={{ color: '#e6d6b8' }}>{p.detail}</small>}
-                  <div><small>{s.seconds > 0 ? `${s.seconds}সে · ` : ''}{s.is_active ? 'চালু' : 'বন্ধ'}</small></div>
+                  <div><small>{s.seconds > 0 ? `${s.seconds}সে · ` : ''}{s.image_url ? '🖼️ ছবি আছে · ' : ''}{s.is_active ? 'চালু' : 'বন্ধ'}</small></div>
                   <div>
+                    <label style={{ ...btn, display: 'inline-block', background: '#35507a', padding: '6px 12px', fontSize: 13 }}>
+                      🖼️ {s.image_url ? 'ছবি বদলান' : 'ছবি/GIF দিন'}
+                      <input type="file" accept="image/*" hidden onChange={(e) => { setScratchImage(s, e.target.files?.[0]); e.target.value = ''; }} />
+                    </label>
+                    {s.image_url && <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => clearScratchImage(s)}>ছবি সরান</button>}
                     <button style={{ ...btn, background: '#35507a', padding: '6px 12px', fontSize: 13 }} onClick={() => edit(s)}>এডিট</button>
                     <button style={{ ...btn, background: '#3a3340', padding: '6px 12px', fontSize: 13 }} onClick={() => toggle(s)}>{s.is_active ? 'বন্ধ' : 'চালু'}</button>
                     <button style={{ ...btn, background: '#7d1d3a', padding: '6px 12px', fontSize: 13 }} onClick={() => del(s)}>মুছুন</button>
@@ -1130,7 +1195,7 @@ export default function Admin() {
       <label style={lbl}>টাইমার সেকেন্ড (০ = টাইমার নেই)</label>
       <input style={inp} type="number" min="0" value={form.seconds} onChange={(e) => set('seconds', e.target.value)} />
 
-      {form.kind === 'card' && (
+      {['card', 'scratch'].includes(form.kind) && (
         <div>
           <label style={lbl}>কার্ডের ছবি (ঐচ্ছিক)</label>
           {(preview || form.image_url) && (
